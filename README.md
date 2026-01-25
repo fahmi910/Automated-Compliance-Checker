@@ -1,42 +1,53 @@
-\# Automated Compliance Checker (ISO27001 Annex A + PDPA 2010)
+# Automated Compliance Checker (ISO27001 Annex A + PDPA 2010)
 
+Automates security evidence collection from Linux and Windows endpoints, evaluates compliance using a control catalogue,
+stores results in SQLite, and visualizes them in a Streamlit dashboard.
 
+## 1) Project Modules
+- agent/       : Runs on endpoints (VM1 Ubuntu, VM2 Windows Server, VM3 Windows 10) to collect evidence and output JSON
+- server/      : Flask audit server that receives JSON and stores audit sessions
+- rules/       : Control catalogue (PASS/FAIL logic, severity, recommendations)
+- db/          : SQLite schema and stored audit data
+- dashboard/   : Streamlit UI to show compliance results and trends
+- docs/        : Architecture notes and API contract
+- tests/       : Sample evidence and test cases
 
-This project automates security evidence collection from multiple OS endpoints (Linux + Windows),
+## 2) Intended Workflow
+1. Run agent on a VM → produces evidence JSON
+2. Agent sends JSON to audit server via HTTP POST
+3. Server stores raw evidence + normalized results in SQLite
+4. Rules engine evaluates PASS/FAIL and computes scores
+5. Dashboard displays summary, details, and history
 
-evaluates compliance against defined controls, calculates scores, and displays results in a dashboard.
+## 3) Requirements (Week 1)
+- Windows PowerShell
+- Python 3.10+ installed
+- Git installed (already used to create commits)
 
+## 4) Setup (Week 1 baseline)
+At Week 1, only the repo structure and placeholders exist.
+Later weeks will add full working code.
 
+### Create Python virtual environment (recommended)
+From the project root:
+```powershell
+python -m venv .venv
+.\.venv\Scripts\activate
+python -m pip install --upgrade pip
 
-\## Project Structure
+## How to run (planned, will be implemented in later weeks)
+Agent:
+- python .\agent\main.py
 
-\- agent/       : Evidence collection agent scripts (runs on endpoints)
+Audit Server:
+- python .\server\app.py
 
-\- server/      : Flask audit server (receives JSON, stores results)
+Dashboard:
+- streamlit run .\dashboard\app.py
 
-\- rules/       : Control catalogue + rule definitions (PASS/FAIL logic)
-
-\- db/          : SQLite schema + stored audit data
-
-\- dashboard/   : Streamlit dashboard UI
-
-\- docs/        : Architecture notes + API contract
-
-\- tests/       : Sample evidence and test cases
-
-
-
-\## Intended Workflow
-
-1\. Agent collects evidence and outputs JSON
-
-2\. Agent sends JSON to audit server via POST
-
-3\. Server stores evidence in SQLite
-
-4\. Rules engine evaluates PASS/FAIL + scoring
-
-5\. Dashboard shows compliance status and trends
-
+## Week 1 Completed Outputs
+- Repo structure created (agent/server/rules/db/dashboard/docs/tests)
+- Placeholder files created
+- Git commits created for tracking progress
 
 
