@@ -60,7 +60,7 @@
       "title": "Firewall is enabled (UFW)",
       "domain": "Asset & Configuration Management",
       "platform": "linux",
-      "evidence_key": "firewall.ufw_enabled",
+      "evidence_key": "asset_config.firewall.ufw_enabled",
       "rule": { "type": "must_be_true" },
       "severity": "high",
       "recommendation": "Enable UFW and allow only required ports. Example: ufw enable; ufw allow 22/tcp.",

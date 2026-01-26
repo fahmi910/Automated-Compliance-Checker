@@ -1,0 +1,34 @@
+{
+  "hostname": "vm1-ubuntu",
+  "host_id": "vm1-ubuntu",
+  "ip_address": "192.168.56.101",
+  "os_type": "linux",
+  "os_version": "Ubuntu 22.04",
+  "timestamp": "2026-01-26T10:00:00+08:00",
+  "agent_version": "0.1",
+  "results": {
+    "access_control": {
+      "ssh": {
+        "permit_root_login": "yes",
+        "password_authentication": "yes"
+      }
+    },
+    "logging": {
+      "rsyslog_running": false,
+      "auth_log_exists": true
+    },
+    "asset_config": {
+      "firewall": {
+        "ufw_enabled": false
+      }
+    },
+    "crypto": {
+      "ssh_weak_ciphers": ["aes128-cbc", "3des-cbc"],
+      "tls": {
+        "minimum_version": "1.0",
+        "supported_versions": ["1.0", "1.1", "1.2"]
+      }
+    }
+  },
+  "errors": []
+}
