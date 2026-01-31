@@ -4,107 +4,105 @@
 
 Purpose:
 
-This checklist ensures the lab environment is ready for repeatable testing and evaluation.
+This checklist confirms the VirtualBox lab environment is ready for repeatable testing and evaluation.
 
-Each VM must have a secure baseline and an insecure baseline snapshot for fair comparison.
+Each VM has two snapshots:
+
+\- secure\_baseline (secure configuration)
+
+\- insecure\_baseline (intentional misconfiguration for testing)
 
 
 
 \## A) Testbed Overview
 
-Hypervisor used: \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_ (VirtualBox / VMware)
+Hypervisor: VirtualBox  
 
-Host machine: \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_
+Host-only network: 192.168.56.0/24  
 
-Network type: \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_ (NAT / Host-only / Internal)
+Host-only adapter IP (host PC): 192.168.56.1  
 
-Audit server IP (planned): \_\_\_\_\_\_\_\_\_\_\_ (example: 192.168.56.150)
+DHCP range: 192.168.56.100 – 192.168.56.200  
 
 
 
 \## B) VM1: Ubuntu Server (Linux)
 
-\- VM name: \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_
+VM name: VM1-Ubuntu-Server  
 
-\- IP address: \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_
+Host-only IP: 192.168.56.100  
 
-\- Login method: \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_ (SSH)
-
-\- Notes: SSH service installed, UFW installed, rsyslog installed
+Access method: SSH  
 
 
 
 Access check:
 
-\- \[ ] Can ping VM from host
+\- \[x] Host can ping VM1
 
-\- \[ ] Can SSH into VM
-
-
-
-Snapshots:
-
-\- \[ ] Snapshot created: secure\_baseline
-
-\- \[ ] Snapshot created: insecure\_baseline
+\- \[x] Host can SSH into VM1 (tested before hardening)
 
 
 
-Secure baseline settings (target):
+Snapshots created:
 
-\- PermitRootLogin no
+\- \[x] secure\_baseline
 
-\- PasswordAuthentication no (SSH key login)
-
-\- rsyslog running
-
-\- /var/log/auth.log exists
-
-\- UFW enabled
+\- \[x] insecure\_baseline
 
 
 
-Insecure baseline settings (for testing):
+Secure baseline (target):
 
-\- PermitRootLogin yes
+\- SSH root login disabled (PermitRootLogin no)
 
-\- PasswordAuthentication yes
+\- SSH password authentication disabled (PasswordAuthentication no)
 
-\- rsyslog stopped
+\- rsyslog enabled and running
+
+\- UFW enabled with SSH allowed
+
+
+
+Insecure baseline (for testing):
+
+\- SSH root login enabled
+
+\- SSH password authentication enabled
+
+\- rsyslog stopped/disabled
 
 \- UFW disabled
 
 
 
-\## C) VM2: Windows Server
+\## C) VM2: Windows Server 2022 (GUI)
 
-\- VM name: \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_
+VM name: VM2-Windows-Server  
 
-\- IP address: \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_
+Host-only IP: 192.168.56.102  
 
-\- Login method: \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_ (RDP / console)
+Access method: Console (GUI)  
 
-\- Notes: Event Log available, Firewall available, local policy editable
+Notes: ICMP inbound rule added to allow ping
 
 
 
 Access check:
 
-\- \[ ] Can ping VM from host
-
-\- \[ ] Can access VM (RDP or console)
+\- \[x] Host can ping VM2
 
 
 
-Snapshots:
+Snapshots created:
 
-\- \[ ] Snapshot created: secure\_baseline
+\- \[x] secure\_baseline
 
-\- \[ ] Snapshot created: insecure\_baseline
+\- \[x] insecure\_baseline
 
 
 
-Secure baseline settings (target):
+Secure baseline (target):
 
 \- Minimum password length >= 8
 
@@ -116,77 +114,67 @@ Secure baseline settings (target):
 
 
 
-Insecure baseline settings (for testing):
+Insecure baseline (for testing):
 
-\- Minimum password length < 8
+\- Minimum password length lowered
 
 \- Password complexity disabled
 
-\- Windows Event Log service stopped
+\- Firewall disabled
 
-\- Windows Firewall disabled
+\- (Optional) audit policy weakened
 
 
 
-\## D) VM3: Windows 10
+\## D) VM3: Windows 10 (Client)
 
-\- VM name: \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_
+VM name: VM3-Windows10  
 
-\- IP address: \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_
+Host-only IP: 192.168.56.103  
 
-\- Login method: \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_ (RDP / console)
+Access method: Console (GUI)  
 
-\- Notes: Defender available, updates available, firewall available
+Notes: ICMP inbound rule added to allow ping
 
 
 
 Access check:
 
-\- \[ ] Can ping VM from host
-
-\- \[ ] Can access VM (console)
+\- \[x] Host can ping VM3
 
 
 
-Snapshots:
+Snapshots created:
 
-\- \[ ] Snapshot created: secure\_baseline
+\- \[x] secure\_baseline
 
-\- \[ ] Snapshot created: insecure\_baseline
+\- \[x] insecure\_baseline
 
 
 
-Secure baseline settings (target):
+Secure baseline (target):
 
-\- Real-time antivirus protection enabled
+\- Windows Defender real-time protection enabled
 
 \- Windows Firewall enabled
 
-\- Windows Update enabled (if you include update checks later)
+
+
+Insecure baseline (for testing):
+
+\- Windows Defender real-time protection disabled
+
+\- (Optional) Firewall disabled
 
 
 
-Insecure baseline settings (for testing):
+\## E) Snapshot naming rule
 
-\- Real-time antivirus protection disabled
-
-\- Windows Firewall disabled (optional for later tests)
-
-
-
-\## E) Snapshot naming rule (important)
-
-Use exactly these snapshot names for consistency:
+Snapshot names used:
 
 \- secure\_baseline
 
 \- insecure\_baseline
-
-
-
-Reason:
-
-It makes testing repeatable, and your evaluation section can clearly compare results.
 
 
 
