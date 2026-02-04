@@ -1,5 +1,5 @@
 from agent.utils.runner import run_powershell
-from agent.utils.parsers import safe_json_loads, parse_net_accounts
+from agent.utils.parser import safe_json_loads, parse_net_accounts
 
 def run() -> dict:
     eventlog = run_powershell("(Get-Service EventLog).Status")
