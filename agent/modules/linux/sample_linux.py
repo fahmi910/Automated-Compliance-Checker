@@ -33,7 +33,7 @@ def run() -> dict:
     rsyslog = run_cmd(["systemctl", "is-active", "rsyslog"])
 
     # 2) Firewall: UFW
-    ufw = run_cmd(["ufw", "status"])
+    ufw = run_cmd(["sudo", "-n", "ufw", "status"])
     ufw_enabled = _parse_ufw_enabled(ufw["stdout"])
 
     # 3) Access control: SSH config
@@ -56,3 +56,4 @@ def run() -> dict:
             "raw": {"sshd_config_path": "/etc/ssh/sshd_config"},
         }
     }
+  
