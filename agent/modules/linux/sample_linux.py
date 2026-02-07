@@ -50,7 +50,7 @@ def run() -> dict:
 
     # 2) Firewall: UFW
     # Try without sudo first (sometimes allowed), then sudo -n fallback
-    ufw = run_cmd(["sudo", "-n", "ufw", "status"])
+    ufw_raw = run_cmd(["sudo", "-n", "ufw", "status"])
     if ufw_raw["returncode"] != 0 and "permission" in (ufw_raw["stderr"] or "").lower():
         ufw_raw = run_cmd(["sudo", "-n", "ufw", "status"])
 
