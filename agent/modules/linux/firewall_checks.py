@@ -13,7 +13,7 @@ def _parse_ufw_status(stdout: str) -> str:
     return "unknown"
 
 
-def _shorten(text: str, max_lines: int = 12) -> str:
+def _shorten(text: str, max_lines: int = 8) -> str:
     """
     Keep evidence short so JSON is readable in terminal and dashboard.
     """

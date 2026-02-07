@@ -13,6 +13,28 @@ def _tail_grep(path: str, pattern: str) -> dict:
     return run_cmd(cmd)
 
 
+def _snippet_or_none(raw: dict, label: str) -> dict:
+    """
+    If grep finds nothing, stdout will be empty (rc may be 0 or 1).
+    We want clean audit output: explicit 'none' instead of empty strings.
+    """
+    stdout = (raw.get("stdout") or "").strip()
+    cmd = raw.get("cmd", "unknown_cmd")
+
+    if not stdout:
+        return make_check(
+            value="none",
+            evidence=f"No {label} found",
+            source=cmd
+        )
+
+    return make_check(
+        value=stdout,
+        evidence=stdout,
+        source=cmd
+    )
+
+
 def run() -> dict:
     results = {}
 
@@ -43,10 +65,10 @@ def run() -> dict:
     # evidence snippets (only if auth.log exists)
     if _file_exists(auth_path):
         failed_raw = _tail_grep(auth_path, "Failed password")
-        results["failed_ssh_logins_snippet"] = cmd_to_check(failed_raw)
+        results["failed_ssh_logins_snippet"] = _snippet_or_none(failed_raw, "failed SSH logins")
 
         sudo_raw = _tail_grep(auth_path, "sudo")
-        results["sudo_usage_snippet"] = cmd_to_check(sudo_raw)
+        results["sudo_usage_snippet"] = _snippet_or_none(sudo_raw, "sudo usage")
     else:
         results["failed_ssh_logins_snippet"] = make_check(
             value="n/a",
