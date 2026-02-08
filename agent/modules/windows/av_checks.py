@@ -38,4 +38,4 @@ def run() -> dict:
         source_override="Get-MpComputerStatus"
     )
 
-    return {"antivirus": results}
+    return results

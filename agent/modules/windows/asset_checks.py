@@ -42,4 +42,4 @@ def run() -> dict:
         source_override="Registry Uninstall keys (HKLM + WOW6432Node)"
     )
 
-    return {"assets": results}
+    return results
