@@ -74,6 +74,11 @@ def run() -> dict:
 
     # Effective runtime config (best evidence)
     sshd_t = run_cmd(["sshd", "-T"])
+    # If permission denied, try sudo -n (non-interactive)
+    stderr_low = (sshd_t.get("stderr") or "").lower()
+    if "permission denied" in stderr_low:
+        sshd_t = run_cmd(["sudo", "-n", "sshd", "-T"])
+
     sshd_t_out = (sshd_t.get("stdout") or "").strip()
     if sshd_t.get("returncode", 1) != 0 or not sshd_t_out:
         eff_ciphers = "unknown"
