@@ -24,13 +24,12 @@ def merge_dict(base: dict, extra: dict) -> dict:
     return base
 
 
-def run_modules(os_type: str) -> Tuple[Dict[str, Any], List[Dict[str, str]]]:
+def run_modules(os_type: str, only: str = "") -> Tuple[Dict[str, Any], List[Dict[str, str]]]:
     """
     Runs OS-specific modules.
     Always returns (results, errors) without crashing the agent.
-    Logs:
-    - Which modules ran
-    - Success/failure per module
+    If 'only' is provided, returns only that top-level module group
+    (e.g., firewall, logging, access_control, updates, antivirus, assets).
     """
     results: Dict[str, Any] = {}
     errors: List[Dict[str, str]] = []
@@ -41,15 +40,31 @@ def run_modules(os_type: str) -> Tuple[Dict[str, Any], List[Dict[str, str]]]:
 
     if os_type == "Linux":
         from agent.modules.linux import sample_linux
-        modules = [("linux.sample_linux", sample_linux.run)]
+
+        def run_filtered_linux() -> Dict[str, Any]:
+            data = sample_linux.run()
+            if only:
+                return {only: data.get(only, {})}
+            return data
+
+        modules = [("linux.sample_linux", run_filtered_linux)]
+
     elif os_type == "Windows":
         from agent.modules.windows import sample_windows
-        modules = [("windows.sample_windows", sample_windows.run)]
+
+        def run_filtered_windows() -> Dict[str, Any]:
+            data = sample_windows.run()
+            if only:
+                return {only: data.get(only, {})}
+            return data
+
+        modules = [("windows.sample_windows", run_filtered_windows)]
+
     else:
         logger.error(f"Unsupported OS type: {os_type}")
         errors.append({"module": "agent", "error": f"unsupported os_type: {os_type}"})
 
-    logger.info(f"Modules scheduled: {[m[0] for m in modules]}")
+    logger.info(f"Modules scheduled: {[m[0] for m in modules]} | only={only or 'ALL'}")
 
     for name, fn in modules:
         logger.info(f"Module start: {name}")
@@ -70,13 +85,13 @@ def run_modules(os_type: str) -> Tuple[Dict[str, Any], List[Dict[str, str]]]:
     return results, errors
 
 
-def build_payload() -> Dict[str, Any]:
+def build_payload(only: str = "") -> Dict[str, Any]:
     """
     Build the final JSON payload.
     Agent must still produce output even if a module fails.
     """
     os_type = get_os_type()
-    results, errors = run_modules(os_type)
+    results, errors = run_modules(os_type, only=only)
 
     payload = {
         "hostname": get_hostname(),
@@ -97,9 +112,14 @@ def build_payload() -> Dict[str, Any]:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", default="output.json")
+    parser.add_argument(
+        "--only",
+        default="",
+        help="Run only one module group: logging|firewall|access_control|updates|antivirus|assets"
+    )
     args = parser.parse_args()
 
-    payload = build_payload()
+    payload = build_payload(only=args.only)
     out_path = os.path.abspath(args.out)
 
     # Ensure output directory exists if user points to a folder that doesn't exist
