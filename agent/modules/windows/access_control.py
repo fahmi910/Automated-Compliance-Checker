@@ -31,24 +31,25 @@ def run() -> dict:
 
     # 2) password complexity (minimal output, no PS metadata)
     sec_raw = run_powershell(r"""
-    try {
-      $path = "C:\Temp\secpol.cfg"
-      New-Item -ItemType Directory -Force -Path "C:\Temp" | Out-Null
-      secedit /export /cfg $path | Out-Null
+        try {
+        $path = "C:\Temp\secpol.cfg"
+        New-Item -ItemType Directory -Force -Path "C:\Temp" | Out-Null
+        secedit /export /cfg $path | Out-Null
 
-      if (Test-Path $path) {
-        $line = (Get-Content $path | Where-Object { $_ -match "^PasswordComplexity\s*=" } | Select-Object -First 1)
-        [PSCustomObject]@{
-          file = $path
-          password_complexity = $line
-        } | ConvertTo-Json -Depth 3
-      } else {
-        [PSCustomObject]@{ error = "secedit export failed" } | ConvertTo-Json -Depth 3
-      }
-    } catch {
-      [PSCustomObject]@{ error = $_.Exception.Message } | ConvertTo-Json -Depth 3
-    }
-    """)
+        if (Test-Path $path) {
+            $line = Get-Content $path | Where-Object { $_ -match "^PasswordComplexity\s*=" } | Select-Object -First 1
+            [PSCustomObject]@{
+            file = $path
+            password_complexity = [string]$line
+            } | ConvertTo-Json -Depth 3
+        } else {
+            [PSCustomObject]@{ error = "secedit export failed" } | ConvertTo-Json -Depth 3
+        }
+        } catch {
+        [PSCustomObject]@{ error = $_.Exception.Message } | ConvertTo-Json -Depth 3
+        }
+        """, timeout=60)
+
 
     def obj_transform(stdout: str, stderr: str, rc: int):
         if rc != 0:
