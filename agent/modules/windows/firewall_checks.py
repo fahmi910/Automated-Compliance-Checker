@@ -30,6 +30,6 @@ def run() -> dict:
         "firewall_profiles": cmd_to_check(
             raw,
             transform=transform,
-            source_override="Get-NetFirewallProfile | Select Name, Enabled"
+            source_override="Get-NetFirewallProfile | Select-Object Name, Enabled"
         )
     }
