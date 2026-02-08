@@ -4,9 +4,9 @@ from agent.utils.result import cmd_to_check
 
 
 def run() -> dict:
-    results = {}
+    out = {}
 
-    # 1) Password and lockout policy (net accounts)
+    # 1) net accounts policy
     net_raw = run_powershell(r"""
     try {
       net accounts | Out-String | ConvertTo-Json -Depth 3
@@ -15,22 +15,21 @@ def run() -> dict:
     }
     """)
 
-    def net_transform(stdout: str, stderr: str, rc: int):
+    def str_transform(stdout: str, stderr: str, rc: int):
         if rc != 0:
             return "error"
         try:
-            # This is JSON string (quoted) because we ConvertTo-Json a string
-            return json.loads(stdout)
+            return json.loads(stdout)  # json string (quoted)
         except Exception:
             return stdout if stdout else "error"
 
-    results["net_accounts_policy"] = cmd_to_check(
+    out["net_accounts_policy"] = cmd_to_check(
         net_raw,
-        transform=net_transform,
+        transform=str_transform,
         source_override="net accounts"
     )
 
-    # 2) Password complexity (secedit export and parse PasswordComplexity line)
+    # 2) password complexity (minimal output, no PS metadata)
     sec_raw = run_powershell(r"""
     try {
       $path = "C:\Temp\secpol.cfg"
@@ -41,7 +40,7 @@ def run() -> dict:
         $line = (Get-Content $path | Where-Object { $_ -match "^PasswordComplexity\s*=" } | Select-Object -First 1)
         [PSCustomObject]@{
           file = $path
-          password_complexity_line = $line
+          password_complexity = $line
         } | ConvertTo-Json -Depth 3
       } else {
         [PSCustomObject]@{ error = "secedit export failed" } | ConvertTo-Json -Depth 3
@@ -51,7 +50,7 @@ def run() -> dict:
     }
     """)
 
-    def sec_transform(stdout: str, stderr: str, rc: int):
+    def obj_transform(stdout: str, stderr: str, rc: int):
         if rc != 0:
             return "error"
         try:
@@ -62,53 +61,44 @@ def run() -> dict:
         except Exception:
             return stdout if stdout else "error"
 
-    results["password_complexity_policy"] = cmd_to_check(
+    out["password_complexity_policy"] = cmd_to_check(
         sec_raw,
-        transform=sec_transform,
-        source_override="secedit /export + parse PasswordComplexity"
+        transform=obj_transform,
+        source_override="secedit /export + PasswordComplexity"
     )
 
-    # 3) Local users list (Guest enabled, PasswordNeverExpires)
+    # 3) local users list
     users_raw = run_powershell(r"""
     try {
-      Get-LocalUser | Select-Object Name, Enabled, PasswordNeverExpires, LastLogon | ConvertTo-Json -Depth 3
-    } catch {
-      [PSCustomObject]@{ error = $_.Exception.Message } | ConvertTo-Json -Depth 3
-    }
-    """)
-
-    def users_transform(stdout: str, stderr: str, rc: int):
-        if rc != 0:
-            return "error"
-        try:
-            data = json.loads(stdout) if stdout else {}
-            if isinstance(data, dict) and data.get("error"):
-                return "error"
-            return data
-        except Exception:
-            return stdout if stdout else "error"
-
-    results["local_users"] = cmd_to_check(
-        users_raw,
-        transform=users_transform,
-        source_override="Get-LocalUser | Select Name, Enabled, PasswordNeverExpires, LastLogon"
-    )
-
-    # 4) Local Administrators group membership
-    admins_raw = run_powershell(r"""
-    try {
-      Get-LocalGroupMember -Group "Administrators" |
-        Select-Object Name, ObjectClass, PrincipalSource |
+      Get-LocalUser |
+        Select-Object Name, Enabled, PasswordNeverExpires, LastLogon |
         ConvertTo-Json -Depth 3
     } catch {
       [PSCustomObject]@{ error = $_.Exception.Message } | ConvertTo-Json -Depth 3
     }
     """)
 
-    results["local_admin_group_members"] = cmd_to_check(
+    out["local_users"] = cmd_to_check(
+        users_raw,
+        transform=obj_transform,
+        source_override="Get-LocalUser | Select Name, Enabled, PasswordNeverExpires, LastLogon"
+    )
+
+    # 4) local admin members (PrincipalSource as string)
+    admins_raw = run_powershell(r"""
+    try {
+      Get-LocalGroupMember -Group "Administrators" |
+        Select-Object Name, ObjectClass, @{N="PrincipalSource";E={$_.PrincipalSource.ToString()}} |
+        ConvertTo-Json -Depth 3
+    } catch {
+      [PSCustomObject]@{ error = $_.Exception.Message } | ConvertTo-Json -Depth 3
+    }
+    """)
+
+    out["local_admin_group_members"] = cmd_to_check(
         admins_raw,
-        transform=users_transform,
+        transform=obj_transform,
         source_override="Get-LocalGroupMember -Group Administrators"
     )
 
-    return {"access_control": results}
+    return out
