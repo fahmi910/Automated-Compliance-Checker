@@ -1,26 +1,18 @@
-from agent.utils.runner import run_powershell
-from agent.utils.parser import safe_json_loads, parse_net_accounts
+from agent.modules.windows import (
+    firewall_checks,
+    logging_checks,
+    access_control,
+    update_checks,
+    av_checks,
+    asset_checks,
+)
 
 def run() -> dict:
-    eventlog = run_powershell("(Get-Service EventLog).Status")
-
-    fw = run_powershell("Get-NetFirewallProfile | Select Name,Enabled | ConvertTo-Json")
-    fw_profiles = safe_json_loads(fw["stdout"], default=[])
-
-    net_acc = run_powershell("net accounts")
-    net_acc_parsed = parse_net_accounts(net_acc["stdout"])
-
     return {
-        "logging": {
-            "eventlog_status": eventlog["stdout"],
-            "raw": {"eventlog": eventlog},
-        },
-        "firewall": {
-            "profiles": fw_profiles,
-            "raw": {"firewall_cmd": fw},
-        },
-        "access_control": {
-            "password_policy": net_acc_parsed,
-            "raw": {"net_accounts_cmd": net_acc},
-        }
+        "firewall": firewall_checks.run(),
+        "logging": logging_checks.run(),
+        "access_control": access_control.run(),
+        "updates": update_checks.run(),
+        "antivirus": av_checks.run(),
+        "assets": asset_checks.run(),
     }
