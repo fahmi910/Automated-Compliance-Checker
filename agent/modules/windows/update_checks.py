@@ -4,12 +4,16 @@ from agent.utils.result import cmd_to_check
 
 
 def run() -> dict:
-    results = {}
+    out = {}
 
-    # Windows Update service
+    # 1) Windows Update service (wuauserv) as strings
     wua_raw = run_powershell(r"""
     try {
-      Get-Service wuauserv | Select-Object Status, StartType | ConvertTo-Json -Depth 3
+      $s = Get-Service wuauserv
+      [PSCustomObject]@{
+        Status = $s.Status.ToString()
+        StartType = $s.StartType.ToString()
+      } | ConvertTo-Json -Depth 3
     } catch {
       [PSCustomObject]@{ error = $_.Exception.Message } | ConvertTo-Json -Depth 3
     }
@@ -19,17 +23,20 @@ def run() -> dict:
         if rc != 0:
             return "error"
         try:
-            return json.loads(stdout)
+            data = json.loads(stdout) if stdout else {}
+            if isinstance(data, dict) and data.get("error"):
+                return "error"
+            return data
         except Exception:
             return stdout if stdout else "error"
 
-    results["windows_update_service"] = cmd_to_check(
+    out["windows_update_service"] = cmd_to_check(
         wua_raw,
         transform=obj_transform,
-        source_override="Get-Service wuauserv | Select Status, StartType"
+        source_override="Get-Service wuauserv (Status, StartType)"
     )
 
-    # Latest hotfix
+    # 2) Latest hotfix
     hotfix_raw = run_powershell(r"""
     try {
       Get-HotFix |
@@ -39,12 +46,12 @@ def run() -> dict:
     } catch {
       [PSCustomObject]@{ error = $_.Exception.Message } | ConvertTo-Json -Depth 3
     }
-    """)
+    """, timeout=60)
 
-    results["latest_hotfix"] = cmd_to_check(
+    out["latest_hotfix"] = cmd_to_check(
         hotfix_raw,
         transform=obj_transform,
         source_override="Get-HotFix | Sort InstalledOn desc | Select -First 1"
     )
 
-    return {"updates": results}
+    return out
