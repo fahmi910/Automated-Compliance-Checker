@@ -1,3 +1,4 @@
+from agent.utils.runner import run_cmd
 from agent.utils.result import make_check, make_error
 
 
@@ -10,8 +11,8 @@ def _read_file(path: str) -> str:
 
 
 def _get_config_line(conf_text: str, key: str) -> str:
-    # Get last non-comment occurrence
-    value = "not_set"
+    # Get last non-comment occurrence; if not set, defaults apply
+    value = "default"
     for line in conf_text.splitlines():
         line = line.strip()
         if not line or line.startswith("#"):
@@ -39,6 +40,18 @@ def _detect_weak_algorithms(text: str) -> list:
     return found
 
 
+def _extract_sshd_t_value(sshd_t_out: str, key: str) -> str:
+    # sshd -T output looks like: "ciphers ..." / "macs ..." / "kexalgorithms ..."
+    for line in (sshd_t_out or "").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        parts = line.split(None, 1)
+        if len(parts) == 2 and parts[0].lower() == key.lower():
+            return parts[1].strip()
+    return "unknown"
+
+
 def run() -> dict:
     path = "/etc/ssh/sshd_config"
     conf = _read_file(path)
@@ -48,14 +61,34 @@ def run() -> dict:
             "ssh_ciphers": make_error("cannot read sshd_config", path),
             "ssh_macs": make_error("cannot read sshd_config", path),
             "ssh_kex_algorithms": make_error("cannot read sshd_config", path),
+            "sshd_effective_ciphers": make_error("cannot read sshd_config", "sshd -T"),
+            "sshd_effective_macs": make_error("cannot read sshd_config", "sshd -T"),
+            "sshd_effective_kex": make_error("cannot read sshd_config", "sshd -T"),
             "weak_algorithms_detected": make_error("cannot read sshd_config", path),
         }
 
+    # Values explicitly set in sshd_config (or 'default')
     ciphers = _get_config_line(conf, "Ciphers")
     macs = _get_config_line(conf, "MACs")
     kex = _get_config_line(conf, "KexAlgorithms")
 
-    combined = f"{ciphers} {macs} {kex}"
+    # Effective runtime config (best evidence)
+    sshd_t = run_cmd(["sshd", "-T"])
+    sshd_t_out = (sshd_t.get("stdout") or "").strip()
+    if sshd_t.get("returncode", 1) != 0 or not sshd_t_out:
+        eff_ciphers = "unknown"
+        eff_macs = "unknown"
+        eff_kex = "unknown"
+        eff_source = sshd_t.get("cmd", "sshd -T")
+        eff_evidence = sshd_t.get("stderr") or "sshd -T failed"
+    else:
+        eff_ciphers = _extract_sshd_t_value(sshd_t_out, "ciphers")
+        eff_macs = _extract_sshd_t_value(sshd_t_out, "macs")
+        eff_kex = _extract_sshd_t_value(sshd_t_out, "kexalgorithms")
+        eff_source = sshd_t.get("cmd", "sshd -T")
+        eff_evidence = "sshd -T (effective config captured)"
+
+    combined = f"{ciphers} {macs} {kex} {eff_ciphers} {eff_macs} {eff_kex}"
     weak = _detect_weak_algorithms(combined)
 
     return {
@@ -73,6 +106,21 @@ def run() -> dict:
             value=kex,
             evidence=f"KexAlgorithms {kex}",
             source=path
+        ),
+        "sshd_effective_ciphers": make_check(
+            value=eff_ciphers,
+            evidence=eff_evidence,
+            source=eff_source
+        ),
+        "sshd_effective_macs": make_check(
+            value=eff_macs,
+            evidence=eff_evidence,
+            source=eff_source
+        ),
+        "sshd_effective_kex": make_check(
+            value=eff_kex,
+            evidence=eff_evidence,
+            source=eff_source
         ),
         "weak_algorithms_detected": make_check(
             value=weak,
