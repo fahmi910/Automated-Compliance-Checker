@@ -13,7 +13,7 @@ def run() -> dict:
       [PSCustomObject]@{ error = $_.Exception.Message } | ConvertTo-Json -Depth 3
     }
     """
-    raw = run_powershell(ps)
+    raw = run_powershell(ps, timeout=60)
 
     def transform(stdout: str, stderr: str, rc: int):
         if rc != 0:
