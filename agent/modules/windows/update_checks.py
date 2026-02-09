@@ -6,6 +6,26 @@ from agent.utils.result import cmd_to_check
 def run() -> dict:
     out = {}
 
+    # Helper: parse JSON stdout first even if return code is non-zero
+    def obj_transform(stdout: str, stderr: str, rc: int):
+        stdout = (stdout or "").strip()
+
+        # If we got valid JSON stdout, use it even if rc != 0
+        if stdout:
+            try:
+                data = json.loads(stdout)
+                if isinstance(data, dict) and data.get("error"):
+                    return "error"
+                return data
+            except Exception:
+                pass  # fall through
+
+        # No usable stdout
+        if rc != 0:
+            return "error"
+
+        return stdout if stdout else "error"
+
     # 1) Windows Update service (wuauserv) as strings
     wua_raw = run_powershell(r"""
     try {
@@ -18,17 +38,6 @@ def run() -> dict:
       [PSCustomObject]@{ error = $_.Exception.Message } | ConvertTo-Json -Depth 3
     }
     """)
-
-    def obj_transform(stdout: str, stderr: str, rc: int):
-        if rc != 0:
-            return "error"
-        try:
-            data = json.loads(stdout) if stdout else {}
-            if isinstance(data, dict) and data.get("error"):
-                return "error"
-            return data
-        except Exception:
-            return stdout if stdout else "error"
 
     out["windows_update_service"] = cmd_to_check(
         wua_raw,

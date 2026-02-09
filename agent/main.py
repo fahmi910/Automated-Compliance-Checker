@@ -28,8 +28,7 @@ def run_modules(os_type: str, only: str = "") -> Tuple[Dict[str, Any], List[Dict
     """
     Runs OS-specific modules.
     Always returns (results, errors) without crashing the agent.
-    If 'only' is provided, returns only that top-level module group
-    (e.g., firewall, logging, access_control, updates, antivirus, assets).
+    If 'only' is provided, returns only that top-level module group.
     """
     results: Dict[str, Any] = {}
     errors: List[Dict[str, str]] = []
@@ -115,7 +114,8 @@ def main() -> None:
     parser.add_argument(
         "--only",
         default="",
-        help="Run only one module group: logging|firewall|access_control|updates|antivirus|assets"
+        choices=["", "logging", "firewall", "access_control", "updates", "antivirus", "assets"],
+        help="Run only one module group"
     )
     args = parser.parse_args()
 
