@@ -65,10 +65,44 @@ def submit():
     conn = get_conn()
     try:
         cur = conn.cursor()
-        # db ops...
+
+        cur.execute("SELECT id FROM hosts WHERE hostname = ?", (hostname,))
+        row = cur.fetchone()
+
+        if row is None:
+            cur.execute(
+                """
+                INSERT INTO hosts (hostname, ip_address, os_type, os_version, first_seen, last_seen)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (hostname, ip_address, os_type, os_version, received_at, received_at),
+            )
+            host_id = cur.lastrowid
+        else:
+            host_id = row["id"]
+            cur.execute(
+                """
+                UPDATE hosts
+                SET ip_address = ?, os_type = ?, os_version = ?, last_seen = ?
+                WHERE id = ?
+                """,
+                (ip_address, os_type, os_version, received_at, host_id),
+            )
+
+        raw_json_str = json.dumps(payload, ensure_ascii=False)
+        cur.execute(
+            """
+            INSERT INTO audits (host_id, agent_timestamp, received_at, raw_json)
+            VALUES (?, ?, ?, ?)
+            """,
+            (host_id, agent_timestamp, received_at, raw_json_str),
+        )
+        audit_id = cur.lastrowid
+
         conn.commit()
     finally:
         conn.close()
+
 
 
     # 3a) Upsert host
