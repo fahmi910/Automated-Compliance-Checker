@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 import os
 import json
 
-from db import init_db, get_conn
+from server.db import init_db, get_conn
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -34,18 +34,15 @@ def bad_request(msg: str, details: dict | None = None):
 
 @app.post("/submit")
 def submit():
-    
     expected = os.environ.get("AGENT_API_KEY", "")
     provided = request.headers.get("X-API-Key", "")
     if not expected or provided != expected:
         return jsonify(error="Unauthorized"), 401
-    
-    # 1) Parse JSON
+
     payload = request.get_json(silent=True)
     if payload is None:
         return bad_request("Invalid or missing JSON body")
 
-    # 2) Validate minimum required fields (adjust keys if your agent uses different names)
     required = ["hostname", "ip_address", "os_type", "results"]
     missing = [k for k in required if k not in payload]
     if missing:
@@ -61,11 +58,11 @@ def submit():
 
     received_at = now_utc_iso()
 
-    # 3) Store in DB
     conn = get_conn()
     try:
         cur = conn.cursor()
 
+        # Upsert host
         cur.execute("SELECT id FROM hosts WHERE hostname = ?", (hostname,))
         row = cur.fetchone()
 
@@ -89,6 +86,7 @@ def submit():
                 (ip_address, os_type, os_version, received_at, host_id),
             )
 
+        # Insert audit
         raw_json_str = json.dumps(payload, ensure_ascii=False)
         cur.execute(
             """
@@ -100,50 +98,10 @@ def submit():
         audit_id = cur.lastrowid
 
         conn.commit()
+        return jsonify(status="ok", audit_id=audit_id, received_at=received_at)
+
     finally:
         conn.close()
-
-
-
-    # 3a) Upsert host
-    cur.execute("SELECT id FROM hosts WHERE hostname = ?", (hostname,))
-    row = cur.fetchone()
-
-    if row is None:
-        cur.execute(
-            """
-            INSERT INTO hosts (hostname, ip_address, os_type, os_version, first_seen, last_seen)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            (hostname, ip_address, os_type, os_version, received_at, received_at),
-        )
-        host_id = cur.lastrowid
-    else:
-        host_id = row["id"]
-        cur.execute(
-            """
-            UPDATE hosts
-            SET ip_address = ?, os_type = ?, os_version = ?, last_seen = ?
-            WHERE id = ?
-            """,
-            (ip_address, os_type, os_version, received_at, host_id),
-        )
-
-    # 3b) Insert audit record (store raw json string)
-    raw_json_str = json.dumps(payload, ensure_ascii=False)
-    cur.execute(
-        """
-        INSERT INTO audits (host_id, agent_timestamp, received_at, raw_json)
-        VALUES (?, ?, ?, ?)
-        """,
-        (host_id, agent_timestamp, received_at, raw_json_str),
-    )
-    audit_id = cur.lastrowid
-
-    conn.commit()
-    conn.close()
-
-    return jsonify(status="ok", audit_id=audit_id, received_at=received_at)
 
 @app.get("/hosts")
 def list_hosts():
