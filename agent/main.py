@@ -1,17 +1,26 @@
 import json
 import os
 import argparse
-import requests
 from pathlib import Path
-from dotenv import load_dotenv
 from typing import Callable, Dict, Any, List, Tuple
 
+import requests
+from dotenv import load_dotenv
+
 from agent.utils.system_info import (
-    get_hostname, get_os_type, get_os_version, get_primary_ip, get_timestamp_utc
+    get_hostname,
+    get_os_type,
+    get_os_version,
+    get_primary_ip,
+    get_timestamp_utc,
 )
 from agent.utils.logger import get_logger
 
 logger = get_logger("agent.main")
+
+# Always load agent/.env reliably (works with: python3 -m agent.main ...)
+AGENT_DIR = Path(__file__).resolve().parent
+load_dotenv(AGENT_DIR / ".env")
 
 
 def merge_dict(base: dict, extra: dict) -> dict:
@@ -40,7 +49,10 @@ def run_modules(os_type: str, only: str = "") -> Tuple[Dict[str, Any], List[Dict
 
     modules: List[Tuple[str, Callable[[], Dict[str, Any]]]] = []
 
-    if os_type == "Linux":
+    # Make OS check more robust (handles 'Linux', 'linux', 'Windows_NT', etc.)
+    os_key = (os_type or "").strip().lower()
+
+    if os_key == "linux":
         from agent.modules.linux import sample_linux
 
         def run_filtered_linux() -> Dict[str, Any]:
@@ -51,7 +63,7 @@ def run_modules(os_type: str, only: str = "") -> Tuple[Dict[str, Any], List[Dict
 
         modules = [("linux.sample_linux", run_filtered_linux)]
 
-    elif os_type == "Windows":
+    elif os_key == "windows":
         from agent.modules.windows import sample_windows
 
         def run_filtered_windows() -> Dict[str, Any]:
@@ -63,8 +75,9 @@ def run_modules(os_type: str, only: str = "") -> Tuple[Dict[str, Any], List[Dict
         modules = [("windows.sample_windows", run_filtered_windows)]
 
     else:
-        logger.error(f"Unsupported OS type: {os_type}")
-        errors.append({"module": "agent", "error": f"unsupported os_type: {os_type}"})
+        msg = f"unsupported os_type: {os_type}"
+        logger.error(msg)
+        errors.append({"module": "agent", "error": msg})
 
     logger.info(f"Modules scheduled: {[m[0] for m in modules]} | only={only or 'ALL'}")
 
@@ -92,23 +105,41 @@ def build_payload(only: str = "") -> Dict[str, Any]:
     Build the final JSON payload.
     Agent must still produce output even if a module fails.
     """
-    os_type = get_os_type()
-    results, errors = run_modules(os_type, only=only)
+    os_type_raw = get_os_type()
+    results, errors = run_modules(os_type_raw, only=only)
 
-    payload = {
+    payload: Dict[str, Any] = {
         "hostname": get_hostname(),
         "ip_address": get_primary_ip(),
-        "os_type": os_type,
+        # Keep a nice label for server/db (matches your Week 4 outputs)
+        "os_type": (os_type_raw or "").strip(),
         "os_version": get_os_version(),
         "timestamp_utc": get_timestamp_utc(),
         "results": results,
-        "errors": errors
+        "errors": errors,
     }
 
-    logger.info(
-        f"Payload built | errors={len(errors)} | top_keys={list(results.keys())}"
-    )
+    logger.info(f"Payload built | errors={len(errors)} | top_keys={list(results.keys())}")
     return payload
+
+
+def submit_payload(payload: Dict[str, Any]) -> Tuple[int, str]:
+    """
+    Submit payload to audit server using API key header.
+    Returns (status_code, response_text).
+    """
+    url = os.environ.get("SERVER_URL", "http://192.168.56.1:8000/submit").strip()
+    api_key = os.environ.get("AGENT_API_KEY", "").strip()
+
+    headers = {"X-API-Key": api_key} if api_key else {}
+
+    logger.info(f"Submitting to: {url} | api_key_set={bool(api_key)}")
+
+    try:
+        r = requests.post(url, json=payload, headers=headers, timeout=20)
+        return r.status_code, r.text
+    except Exception as e:
+        return 0, f"submit_failed: {e}"
 
 
 def main() -> None:
@@ -118,7 +149,7 @@ def main() -> None:
         "--only",
         default="",
         choices=["", "logging", "firewall", "access_control", "updates", "antivirus", "assets"],
-        help="Run only one module group"
+        help="Run only one module group",
     )
     args = parser.parse_args()
 
@@ -135,6 +166,18 @@ def main() -> None:
 
     logger.info(f"Saved output JSON: {out_path}")
     print(f"[OK] Saved: {out_path}")
+
+    status, resp = submit_payload(payload)
+    if status == 200:
+        logger.info(f"Submitted to server OK | {resp}")
+        print(f"[OK] Submitted: {status}")
+    elif status == 401:
+        logger.error(f"Unauthorized | resp={resp}")
+        print("[FAIL] Unauthorized. Check AGENT_API_KEY in agent/.env")
+        print(f"[FAIL] Submit status={status} resp={resp}")
+    else:
+        logger.error(f"Submit failed | status={status} | resp={resp}")
+        print(f"[FAIL] Submit status={status} resp={resp}")
 
 
 if __name__ == "__main__":
