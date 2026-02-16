@@ -4,7 +4,12 @@ __pycache__/
 .venv/
 venv/
 
-# Local database and generated data
+# Environment variables (secrets)
+.env
+**/.env
+
+# Databases and runtime data
+server/data/
 db/data/
 *.sqlite
 *.db
