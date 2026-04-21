@@ -1,30 +1,43 @@
 {
   "version": "1.0",
   "description": "Control catalogue v1 for automated compliance checking (ISO27001 Annex A + PDPA 2010).",
-  "severity_weights": {
-    "low": 1,
-    "medium": 2,
-    "high": 3
-  },
+  "severity_weights": { "low": 1, "medium": 2, "high": 3 },
   "controls": [
+
     {
       "control_id": "AC-LNX-01",
       "title": "Disable SSH root login",
       "domain": "Access Control",
       "platform": "linux",
-      "evidence_key": "access_control.ssh.permit_root_login",
-      "rule": { "type": "must_equal", "value": "no" },
+      "evaluator": "evaluate_ac_lnx_01",
       "severity": "high",
-      "recommendation": "Set PermitRootLogin no in /etc/ssh/sshd_config and restart sshd.",
-      "iso_mapping": "ISO27001 Annex A (Access Control / Identity & Access)",
-      "pdpa_mapping": "Security principle: protect personal data via strong access control."
+      "business_criticality": 4,
+      "security_impact": 5,
+      "asset_coverage": 4,
+      "compliance_importance": 5,
+      "exposure_profile": "remote_auth",
+      "exposure_likelihood_base": 3,
+      "recommendations": {
+        "PASS": "No remediation needed.",
+        "PARTIAL": "Set PermitRootLogin no and restart SSH service.",
+        "FAIL": "Disable direct root SSH login immediately.",
+        "UNKNOWN": "Investigate why SSH evidence could not be collected."
+      },
+      "iso_mapping": [
+        "A.5.15 Access control",
+        "A.8.2 Privileged access rights",
+        "A.8.5 Secure authentication"
+      ],
+      "pdpa_mapping": [
+        "Security principle: protect personal data via strong access control."
+      ]
     },
     {
       "control_id": "AC-LNX-02",
       "title": "Disable SSH password authentication",
       "domain": "Access Control",
       "platform": "linux",
-      "evidence_key": "access_control.ssh.password_authentication",
+      "evidence_path": "results.access_control.ssh_password_authentication.value",
       "rule": { "type": "must_equal", "value": "no" },
       "severity": "high",
       "recommendation": "Set PasswordAuthentication no in /etc/ssh/sshd_config. Use key-based authentication.",
@@ -33,123 +46,161 @@
     },
     {
       "control_id": "LOG-LNX-01",
-      "title": "System logging service is running",
+      "title": "System logging service (rsyslog) is running",
       "domain": "Logging & Monitoring",
       "platform": "linux",
-      "evidence_key": "logging.rsyslog_running",
+      "evidence_path": "results.logging.rsyslog_running.value",
       "rule": { "type": "must_be_true" },
       "severity": "high",
       "recommendation": "Enable and start rsyslog (or journald forwarding). Ensure logs are generated and retained.",
       "iso_mapping": "ISO27001 Annex A (Logging & Monitoring)",
-      "pdpa_mapping": "Security principle: maintain audit trails to detect incidents affecting personal data."
+      "pdpa_mapping": "Security principle: maintain audit trails to detect incidents."
     },
     {
       "control_id": "LOG-LNX-02",
       "title": "Authentication log file exists",
       "domain": "Logging & Monitoring",
       "platform": "linux",
-      "evidence_key": "logging.auth_log_exists",
+      "evidence_path": "results.logging.auth_log_exists.value",
       "rule": { "type": "must_be_true" },
       "severity": "medium",
-      "recommendation": "Ensure /var/log/auth.log exists and is readable. Confirm SSH login events are recorded.",
+      "recommendation": "Ensure /var/log/auth.log exists and SSH login events are recorded.",
       "iso_mapping": "ISO27001 Annex A (Logging)",
       "pdpa_mapping": "Security principle: keep access logs for accountability."
     },
     {
       "control_id": "FW-LNX-01",
-      "title": "Firewall is enabled (UFW)",
+      "title": "UFW firewall is active",
       "domain": "Asset & Configuration Management",
       "platform": "linux",
-      "evidence_key": "asset_config.firewall.ufw_enabled",
-      "rule": { "type": "must_be_true" },
+      "evidence_path": "results.firewall.ufw_status.value",
+      "rule": { "type": "must_equal", "value": "active" },
       "severity": "high",
       "recommendation": "Enable UFW and allow only required ports. Example: ufw enable; ufw allow 22/tcp.",
       "iso_mapping": "ISO27001 Annex A (Network Security / Configuration Management)",
-      "pdpa_mapping": "Security principle: prevent unauthorized access to systems processing personal data."
+      "pdpa_mapping": "Security principle: prevent unauthorized access."
     },
     {
       "control_id": "CRYPTO-LNX-01",
-      "title": "No weak SSH ciphers enabled",
+      "title": "No weak SSH algorithms detected",
       "domain": "Cryptography Configuration",
       "platform": "linux",
-      "evidence_key": "crypto.ssh_weak_ciphers",
+      "evidence_path": "results.crypto.weak_algorithms_detected.value",
       "rule": { "type": "must_be_empty_list" },
       "severity": "high",
-      "recommendation": "Remove CBC/legacy ciphers from sshd_config. Use modern ciphers like chacha20-poly1305 or aes-gcm.",
+      "recommendation": "Remove weak SSH algorithms (cbc/3des/sha1/group1/group14). Use modern ciphers and KEX.",
       "iso_mapping": "ISO27001 Annex A (Cryptography)",
-      "pdpa_mapping": "Security principle: ensure strong encryption for data protection."
+      "pdpa_mapping": "Security principle: strong cryptography protects data."
     },
+
     {
-      "control_id": "CRYPTO-LNX-02",
-      "title": "Minimum TLS version is 1.2",
-      "domain": "Cryptography Configuration",
-      "platform": "linux",
-      "evidence_key": "crypto.tls.minimum_version",
-      "rule": { "type": "min_version", "value": "1.2" },
-      "severity": "high",
-      "recommendation": "Disable TLS 1.0/1.1 and weak cipher suites. Enforce TLS 1.2+ on services.",
-      "iso_mapping": "ISO27001 Annex A (Cryptography / Network Security)",
-      "pdpa_mapping": "Security principle: protect data-in-transit with strong TLS."
-    },
-    {
-      "control_id": "AC-WIN-01",
-      "title": "Minimum password length is 8 or more",
-      "domain": "Access Control",
-      "platform": "windows_server",
-      "evidence_key": "access_control.password.min_length",
-      "rule": { "type": "min_number", "value": 8 },
-      "severity": "high",
-      "recommendation": "Set minimum password length to 8+ via Local Security Policy or domain policy.",
-      "iso_mapping": "ISO27001 Annex A (Access Control)",
-      "pdpa_mapping": "Security principle: reduce account compromise risk."
-    },
-    {
-      "control_id": "AC-WIN-02",
-      "title": "Password complexity is enabled",
-      "domain": "Access Control",
-      "platform": "windows_server",
-      "evidence_key": "access_control.password.complexity_enabled",
-      "rule": { "type": "must_be_true" },
-      "severity": "high",
-      "recommendation": "Enable password complexity requirements in policy settings.",
-      "iso_mapping": "ISO27001 Annex A (Access Control)",
-      "pdpa_mapping": "Security principle: strengthen authentication to protect personal data."
-    },
-    {
-      "control_id": "LOG-WIN-01",
-      "title": "Windows Event Log service is running",
-      "domain": "Logging & Monitoring",
-      "platform": "windows_server",
-      "evidence_key": "logging.eventlog_service_running",
-      "rule": { "type": "must_be_true" },
-      "severity": "high",
-      "recommendation": "Start the Windows Event Log service and ensure security events (4624/4625) are recorded.",
-      "iso_mapping": "ISO27001 Annex A (Logging)",
-      "pdpa_mapping": "Security principle: maintain audit trails for accountability."
-    },
-    {
-      "control_id": "FW-WIN-01",
-      "title": "Windows Firewall is enabled",
+      "control_id": "FW-WINSRV-01",
+      "title": "Windows Firewall enabled for all profiles",
       "domain": "Asset & Configuration Management",
       "platform": "windows_server",
-      "evidence_key": "firewall.windows_firewall_enabled",
-      "rule": { "type": "must_be_true" },
+      "evidence_path": "results.firewall.firewall_profiles.value",
+      "rule": { "type": "all_objects_field_equals", "field": "Enabled", "value": 1 },
       "severity": "high",
       "recommendation": "Enable Windows Firewall for Domain/Private/Public profiles and allow only required inbound ports.",
       "iso_mapping": "ISO27001 Annex A (Network Security)",
-      "pdpa_mapping": "Security principle: reduce attack surface for systems handling personal data."
+      "pdpa_mapping": "Security principle: reduce attack surface."
+    },
+    {
+      "control_id": "LOG-WINSRV-01",
+      "title": "Windows Event Log service is running",
+      "domain": "Logging & Monitoring",
+      "platform": "windows_server",
+      "evidence_path": "results.logging.eventlog_service.value.Status",
+      "rule": { "type": "must_equal", "value": "Running" },
+      "severity": "high",
+      "recommendation": "Start Windows Event Log service and ensure Security events are recorded.",
+      "iso_mapping": "ISO27001 Annex A (Logging)",
+      "pdpa_mapping": "Security principle: maintain audit trails."
+    },
+    {
+      "control_id": "AC-WINSRV-01",
+      "title": "Password complexity is enabled",
+      "domain": "Access Control",
+      "platform": "windows_server",
+      "evidence_path": "results.access_control.password_complexity_policy.value.password_complexity",
+      "rule": { "type": "must_equal", "value": "PasswordComplexity = 1" },
+      "severity": "high",
+      "recommendation": "Enable password complexity requirements in Local Security Policy or domain policy.",
+      "iso_mapping": "ISO27001 Annex A (Access Control)",
+      "pdpa_mapping": "Security principle: strengthen authentication."
+    },
+    {
+      "control_id": "UPD-WINSRV-01",
+      "title": "Windows Update service is running",
+      "domain": "Asset & Configuration Management",
+      "platform": "windows_server",
+      "evidence_path": "results.updates.windows_update_service.value.Status",
+      "rule": { "type": "must_equal", "value": "Running" },
+      "severity": "medium",
+      "recommendation": "Enable Windows Update service and apply the latest patches.",
+      "iso_mapping": "ISO27001 Annex A (Vulnerability/Patch Management)",
+      "pdpa_mapping": "Security principle: reduce exploitation risk."
+    },
+
+    {
+      "control_id": "FW-W10-01",
+      "title": "Windows Firewall enabled for all profiles",
+      "domain": "Asset & Configuration Management",
+      "platform": "windows10",
+      "evidence_path": "results.firewall.firewall_profiles.value",
+      "rule": { "type": "all_objects_field_equals", "field": "Enabled", "value": 1 },
+      "severity": "high",
+      "recommendation": "Enable Windows Firewall for Domain/Private/Public profiles and allow only required inbound ports.",
+      "iso_mapping": "ISO27001 Annex A (Network Security)",
+      "pdpa_mapping": "Security principle: reduce attack surface."
+    },
+    {
+      "control_id": "LOG-W10-01",
+      "title": "Windows Event Log service is running",
+      "domain": "Logging & Monitoring",
+      "platform": "windows10",
+      "evidence_path": "results.logging.eventlog_service.value.Status",
+      "rule": { "type": "must_equal", "value": "Running" },
+      "severity": "high",
+      "recommendation": "Start Windows Event Log service and ensure Security events are recorded.",
+      "iso_mapping": "ISO27001 Annex A (Logging)",
+      "pdpa_mapping": "Security principle: maintain audit trails."
+    },
+    {
+      "control_id": "AC-W10-01",
+      "title": "Password complexity is enabled",
+      "domain": "Access Control",
+      "platform": "windows10",
+      "evidence_path": "results.access_control.password_complexity_policy.value.password_complexity",
+      "rule": { "type": "must_equal", "value": "PasswordComplexity = 1" },
+      "severity": "high",
+      "recommendation": "Enable password complexity requirements in Local Security Policy.",
+      "iso_mapping": "ISO27001 Annex A (Access Control)",
+      "pdpa_mapping": "Security principle: strengthen authentication."
+    },
+    {
+      "control_id": "UPD-W10-01",
+      "title": "Windows Update service is running",
+      "domain": "Asset & Configuration Management",
+      "platform": "windows10",
+      "evidence_path": "results.updates.windows_update_service.value.Status",
+      "rule": { "type": "must_equal", "value": "Running" },
+      "severity": "medium",
+      "recommendation": "Enable Windows Update service and apply the latest patches.",
+      "iso_mapping": "ISO27001 Annex A (Vulnerability/Patch Management)",
+      "pdpa_mapping": "Security principle: reduce exploitation risk."
     },
     {
       "control_id": "EP-W10-01",
       "title": "Real-time antivirus protection is enabled",
       "domain": "Asset & Configuration Management",
       "platform": "windows10",
-      "evidence_key": "av.real_time_protection",
+      "evidence_path": "results.antivirus.defender_status.value.RealTimeProtectionEnabled",
       "rule": { "type": "must_be_true" },
       "severity": "high",
       "recommendation": "Enable Microsoft Defender real-time protection and ensure signatures are up to date.",
       "iso_mapping": "ISO27001 Annex A (Protection against malware)",
-      "pdpa_mapping": "Security principle: prevent malware incidents that could expose personal data."
+      "pdpa_mapping": "Security principle: prevent malware incidents affecting personal data."
     }
   ]
 }
