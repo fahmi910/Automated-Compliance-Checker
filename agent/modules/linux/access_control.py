@@ -64,8 +64,9 @@ def run() -> dict:
 
     # Primary evidence: effective runtime SSH setting
     ok_runtime, runtime_output = _run_cmd(["sudo", "-n", "sshd", "-T"])
-    if ok_runtime and runtime_output:
+    if ok_runtime and runtime_output and "permitrootlogin" in runtime_output.lower():
         permit_root_runtime = _parse_sshd_t_value(runtime_output, "permitrootlogin")
+
         results["ssh_permit_root_login_runtime"] = make_check(
             value=permit_root_runtime,
             evidence=f"permitrootlogin {permit_root_runtime}",
@@ -73,7 +74,7 @@ def run() -> dict:
         )
     else:
         results["ssh_permit_root_login_runtime"] = make_error(
-            runtime_output or "cannot run sshd -T",
+            runtime_output or "cannot collect runtime PermitRootLogin using sshd -T",
             "sudo -n sshd -T",
         )
 
