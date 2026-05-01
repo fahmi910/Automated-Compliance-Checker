@@ -34,6 +34,9 @@ def _snippet_or_none(raw: dict, label: str) -> dict:
         source=cmd
     )
 
+def _tail_file(path: str, lines: int = 5) -> dict:
+    cmd = ["bash", "-lc", f"tail -n {lines} {path}"]
+    return run_cmd(cmd)
 
 def run() -> dict:
     results = {}
@@ -61,6 +64,19 @@ def run() -> dict:
         evidence=syslog_path,
         source="os.path.exists"
     )
+
+    if _file_exists(syslog_path):
+        syslog_tail_raw = _tail_file(syslog_path, 5)
+        results["syslog_recent_entries"] = _snippet_or_none(
+            syslog_tail_raw,
+            "recent syslog entries"
+        )
+    else:
+        results["syslog_recent_entries"] = make_check(
+            value="n/a",
+            evidence="syslog not found",
+            source=syslog_path
+        )
 
     # evidence snippets (only if auth.log exists)
     if _file_exists(auth_path):
