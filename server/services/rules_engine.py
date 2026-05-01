@@ -465,8 +465,10 @@ def evaluate_ac_lnx_01(
     primary_path = "results.access_control.ssh_permit_root_login_runtime"
     exists_primary, primary_obj = get_check_object(audit, primary_path)
 
-    if exists_primary:
-        primary_value = normalize_str(primary_obj.get("value"))
+    primary_value_raw = primary_obj.get("value") if exists_primary else None
+    primary_value = normalize_str(primary_value_raw)
+
+    if exists_primary and primary_value not in ("", "unknown", "error"):
         result["primary_evidence"] = build_evidence_block(
             collected=True,
             path=primary_path,
@@ -504,7 +506,7 @@ def evaluate_ac_lnx_01(
             value=None,
             source=None,
             raw_snippet=None,
-            note="Primary runtime evidence not yet collected by current agent.",
+            note=f"Primary runtime evidence unavailable or invalid: {primary_value_raw!r}"
         )
 
         if exists_secondary:
@@ -706,8 +708,7 @@ def evaluate_audit(
         results.append(evaluated)
 
     # Temporary compatibility scoring until Step 3
-    scoring_compat_results = build_scoring_compat_results(results)
-    scores = compute_scores(scoring_compat_results, severity_weights)
+    scores = compute_scores(results, severity_weights)
 
     # Temporary top risks placeholder using severity/status ordering
     non_pass = [r for r in results if str(r.get("status", "")).upper() != "PASS"]
@@ -739,7 +740,7 @@ def evaluate_audit(
         "evaluated_controls": len(results),
         "excluded_controls": excluded_controls,
         "scores": scores,  # temporary until Step 3
-        "top_risks": top_risks_summary,
+        "top_risks": scores.get("top_risks", []),
         "results": results,
     }
 
