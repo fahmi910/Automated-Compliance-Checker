@@ -62,19 +62,32 @@ def run() -> dict:
         "systemctl is-active ssh",
     )
 
-    # Primary evidence: effective runtime SSH setting
+    # Primary evidence: effective runtime SSH settings
     ok_runtime, runtime_output = _run_cmd(["sudo", "-n", "sshd", "-T"])
+
     if ok_runtime and runtime_output and "permitrootlogin" in runtime_output.lower():
         permit_root_runtime = _parse_sshd_t_value(runtime_output, "permitrootlogin")
+        password_auth_runtime = _parse_sshd_t_value(runtime_output, "passwordauthentication")
 
         results["ssh_permit_root_login_runtime"] = make_check(
             value=permit_root_runtime,
             evidence=f"permitrootlogin {permit_root_runtime}",
             source="sudo -n sshd -T",
         )
+
+        results["ssh_password_authentication_runtime"] = make_check(
+            value=password_auth_runtime,
+            evidence=f"passwordauthentication {password_auth_runtime}",
+            source="sudo -n sshd -T",
+        )
     else:
         results["ssh_permit_root_login_runtime"] = make_error(
             runtime_output or "cannot collect runtime PermitRootLogin using sshd -T",
+            "sudo -n sshd -T",
+        )
+
+        results["ssh_password_authentication_runtime"] = make_error(
+            runtime_output or "cannot collect runtime PasswordAuthentication using sshd -T",
             "sudo -n sshd -T",
         )
 
