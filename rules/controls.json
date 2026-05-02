@@ -37,24 +37,59 @@
       "title": "Disable SSH password authentication",
       "domain": "Access Control",
       "platform": "linux",
-      "evidence_path": "results.access_control.ssh_password_authentication.value",
-      "rule": { "type": "must_equal", "value": "no" },
+      "evaluator": "evaluate_ac_lnx_02",
       "severity": "high",
-      "recommendation": "Set PasswordAuthentication no in /etc/ssh/sshd_config. Use key-based authentication.",
-      "iso_mapping": "ISO27001 Annex A (Access Control)",
-      "pdpa_mapping": "Security principle: reduce credential compromise risk."
+
+      "business_criticality": 4,
+      "security_impact": 4,
+      "asset_coverage": 4,
+      "compliance_importance": 4,
+      "exposure_profile": "remote_auth",
+      "exposure_likelihood_base": 3,
+
+      "recommendations": {
+        "PASS": "No remediation needed.",
+        "FAIL": "Disable SSH password authentication and use SSH key-based authentication.",
+        "UNKNOWN": "Investigate why SSH password authentication evidence could not be collected."
+      },
+
+      "iso_mapping": [
+        "A.5.15 Access control",
+        "A.5.17 Authentication Information",
+        "A.8.5 Secure authentication"
+      ],
+      "pdpa_mapping": [
+        "Security principle: reduce credential compromise and brute-force risk."
+      ]
     },
     {
       "control_id": "LOG-LNX-01",
       "title": "System logging service (rsyslog) is running",
       "domain": "Logging & Monitoring",
       "platform": "linux",
-      "evidence_path": "results.logging.rsyslog_running.value",
-      "rule": { "type": "must_be_true" },
+      "evaluator": "evaluate_log_lnx_01",
       "severity": "high",
-      "recommendation": "Enable and start rsyslog (or journald forwarding). Ensure logs are generated and retained.",
-      "iso_mapping": "ISO27001 Annex A (Logging & Monitoring)",
-      "pdpa_mapping": "Security principle: maintain audit trails to detect incidents."
+
+      "business_criticality": 4,
+      "security_impact": 5,
+      "asset_coverage": 4,
+      "compliance_importance": 4,
+      "exposure_profile": "monitoring_visibility",
+      "exposure_likelihood_base": 2,
+
+      "recommendations": {
+        "PASS": "No remediation needed.",
+        "FAIL": "Start and enable rsyslog, then verify that system logs are being generated.",
+        "UNKNOWN": "Investigate why logging service status or syslog evidence could not be collected."
+      },
+
+      "iso_mapping": [
+        "A.8.15 Logging",
+        "A.8.16 Monitoring Activities"
+      ],
+      "pdpa_mapping": [
+        "Security principle: maintain audit trails and monitoring visibility."
+      ]
     },
     {
       "control_id": "LOG-LNX-02",
@@ -73,26 +108,60 @@
       "title": "UFW firewall is active",
       "domain": "Asset & Configuration Management",
       "platform": "linux",
-      "evidence_path": "results.firewall.ufw_status.value",
-      "rule": { "type": "must_equal", "value": "active" },
+      "evaluator": "evaluate_fw_lnx_01",
       "severity": "high",
-      "recommendation": "Enable UFW and allow only required ports. Example: ufw enable; ufw allow 22/tcp.",
-      "iso_mapping": "ISO27001 Annex A (Network Security / Configuration Management)",
-      "pdpa_mapping": "Security principle: prevent unauthorized access."
+
+      "business_criticality": 4,
+      "security_impact": 5,
+      "asset_coverage": 4,
+      "compliance_importance": 4,
+      "exposure_profile": "network_defense",
+      "exposure_likelihood_base": 3,
+
+      "recommendations": {
+        "PASS": "No remediation needed.",
+        "FAIL": "Enable UFW and allow only required ports. Set default deny policy where appropriate.",
+        "UNKNOWN": "Investigate why UFW firewall status or rules could not be collected."
+      },
+
+      "iso_mapping": [
+        "A.8.20 Network security",
+        "A.8.21 Security of network services",
+        "A.8.22 Segregation of networks"
+      ],
+      "pdpa_mapping": [
+        "Security principle: prevent unauthorized network access."
+      ]
     },
     {
       "control_id": "CRYPTO-LNX-01",
       "title": "No weak SSH algorithms detected",
-      "domain": "Cryptography Configuration",
+      "domain": "Cryptography",
       "platform": "linux",
-      "evidence_path": "results.crypto.weak_algorithms_detected.value",
-      "rule": { "type": "must_be_empty_list" },
+      "evaluator": "evaluate_crypto_lnx_01",
       "severity": "high",
-      "recommendation": "Remove weak SSH algorithms (cbc/3des/sha1/group1/group14). Use modern ciphers and KEX.",
-      "iso_mapping": "ISO27001 Annex A (Cryptography)",
-      "pdpa_mapping": "Security principle: strong cryptography protects data."
-    },
 
+      "business_criticality": 4,
+      "security_impact": 5,
+      "asset_coverage": 4,
+      "compliance_importance": 4,
+      "exposure_profile": "secure_communication",
+      "exposure_likelihood_base": 3,
+
+      "recommendations": {
+        "PASS": "No remediation needed.",
+        "FAIL": "Remove weak SSH algorithms (CBC, 3DES, SHA1, weak KEX) and enforce modern secure configurations.",
+        "UNKNOWN": "Investigate why SSH cryptographic configuration could not be evaluated."
+      },
+
+      "iso_mapping": [
+        "A.8.24 Use of cryptography",
+        "A.8.5 Secure authentication"
+      ],
+      "pdpa_mapping": [
+        "Security principle: protect confidentiality of data in transit."
+      ]
+    },
     {
       "control_id": "FW-WINSRV-01",
       "title": "Windows Firewall enabled for all profiles",

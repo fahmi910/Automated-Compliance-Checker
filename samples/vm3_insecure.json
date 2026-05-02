@@ -1,0 +1,264 @@
+{
+  "hostname": "VM3-WIN10PRO",
+  "ip_address": "10.0.2.15",
+  "os_type": "Windows",
+  "os_version": "Windows-10-10.0.19045-SP0",
+  "timestamp_utc": "2026-02-14T17:08:11.908203+00:00",
+  "results": {
+    "firewall": {
+      "firewall_profiles": {
+        "value": [
+          {
+            "Name": "Domain",
+            "Enabled": 0
+          },
+          {
+            "Name": "Private",
+            "Enabled": 0
+          },
+          {
+            "Name": "Public",
+            "Enabled": 0
+          }
+        ],
+        "evidence": "[\n    {\n        \"Name\":  \"Domain\",\n        \"Enabled\":  0\n    },\n    {\n        \"Name\":  \"Private\",\n        \"Enabled\":  0\n    },\n    {\n        \"Name\":  \"Public\",\n        \"Enabled\":  0\n    }\n]",
+        "source": "Get-NetFirewallProfile | Select-Object Name, Enabled"
+      }
+    },
+    "logging": {
+      "eventlog_service": {
+        "value": {
+          "Status": "Running",
+          "StartType": "Automatic"
+        },
+        "evidence": "{\n    \"Status\":  \"Running\",\n    \"StartType\":  \"Automatic\"\n}",
+        "source": "Get-Service EventLog (Status, StartType)"
+      },
+      "last_security_event": {
+        "value": {
+          "TimeCreated": "/Date(1771088709117)/",
+          "Id": 4739,
+          "ProviderName": "Microsoft-Windows-Security-Auditing",
+          "Message": "Domain Policy was changed.\r\n\r\nChange Type:\t\tLockout Policy modified\r\n\r\nSubject:\r\n\tSecurity ID:\t\tS-1-5-21-3146485983-1611446394-333157527-1001\r\n\tAccount Name:\t\th"
+        },
+        "evidence": "{\n    \"TimeCreated\":  \"\\/Date(1771088709117)\\/\",\n    \"Id\":  4739,\n    \"ProviderName\":  \"Microsoft-Windows-Security-Auditing\",\n    \"Message\":  \"Domain Policy was changed.\\r\\n\\r\\nChange Type:\\t\\tLockout Policy modified\\r\\n\\r\\nSubject:\\r\\n\\tSecurity ID:\\t\\tS-1-5-21-3146485983-1611446394-333157527-1001\\r\\n\\tAccount Name:\\t\\th\"\n}",
+        "source": "Get-WinEvent -LogName Security -MaxEvents 1"
+      },
+      "failed_logins_4625": {
+        "value": [],
+        "evidence": "No matching events found in last 7 days",
+        "source": "Get-WinEvent Security Id=4625 (last 7 days) MaxEvents=3"
+      },
+      "success_logins_4624": {
+        "value": [
+          {
+            "TimeCreated": "/Date(1771088676932)/",
+            "Id": 4624,
+            "ProviderName": "Microsoft-Windows-Security-Auditing"
+          },
+          {
+            "TimeCreated": "/Date(1771088665452)/",
+            "Id": 4624,
+            "ProviderName": "Microsoft-Windows-Security-Auditing"
+          },
+          {
+            "TimeCreated": "/Date(1771088585048)/",
+            "Id": 4624,
+            "ProviderName": "Microsoft-Windows-Security-Auditing"
+          }
+        ],
+        "evidence": "[\n    {\n        \"TimeCreated\":  \"\\/Date(1771088676932)\\/\",\n        \"Id\":  4624,\n        \"ProviderName\":  \"Microsoft-Windows-Security-Auditing\"\n    },\n    {\n        \"TimeCreated\":  \"\\/Date(1771088665452)\\/\",\n        \"Id\":  4624,\n        \"ProviderName\":  \"Microsoft-Windows-Security-Auditing\"\n    },\n    {\n        \"TimeCreated\":  \"\\/Date(1771088585048)\\/\",\n        \"Id\":  4624,\n        \"ProviderName\":  \"Microsoft-Windows-Security-Auditing\"\n    }\n]",
+        "source": "Get-WinEvent Security Id=4624 (last 7 days) MaxEvents=3"
+      }
+    },
+    "access_control": {
+      "net_accounts_policy": {
+        "value": "Force user logoff how long after time expires?:       Never\r\nMinimum password age (days):                          1\r\nMaximum password age (days):                          60\r\nMinimum password length:                              4\r\nLength of password history maintained:                None\r\nLockout threshold:                                    Never\r\nLockout duration (minutes):                           30\r\nLockout observation window (minutes):                 30\r\nComputer role:                                        WORKSTATION\r\nThe command completed successfully.\r\n\r\n",
+        "evidence": "\"Force user logoff how long after time expires?:       Never\\r\\nMinimum password age (days):                          1\\r\\nMaximum password age (days):                          60\\r\\nMinimum password length:                              4\\r\\nLength of password history maintained:                None\\r\\nLockout threshold:                                    Never\\r\\nLockout duration (minutes):                           30\\r\\nLockout observation window (minutes):                 30\\r\\nComputer role:                                        WORKSTATION\\r\\nThe command completed successfully.\\r\\n\\r\\n\"",
+        "source": "net accounts"
+      },
+      "password_complexity_policy": {
+        "value": {
+          "file": "C:\\Temp\\secpol.cfg",
+          "password_complexity": "PasswordComplexity = 1"
+        },
+        "evidence": "{\n    \"file\":  \"C:\\\\Temp\\\\secpol.cfg\",\n    \"password_complexity\":  \"PasswordComplexity = 1\"\n}",
+        "source": "secedit /export + PasswordComplexity"
+      },
+      "local_users": {
+        "value": [
+          {
+            "Name": "Administrator",
+            "Enabled": false,
+            "PasswordNeverExpires": null,
+            "LastLogon": null
+          },
+          {
+            "Name": "DefaultAccount",
+            "Enabled": false,
+            "PasswordNeverExpires": null,
+            "LastLogon": null
+          },
+          {
+            "Name": "Guest",
+            "Enabled": false,
+            "PasswordNeverExpires": null,
+            "LastLogon": null
+          },
+          {
+            "Name": "hihel",
+            "Enabled": true,
+            "PasswordNeverExpires": null,
+            "LastLogon": null
+          },
+          {
+            "Name": "WDAGUtilityAccount",
+            "Enabled": false,
+            "PasswordNeverExpires": null,
+            "LastLogon": null
+          }
+        ],
+        "evidence": "[\n    {\n        \"Name\":  \"Administrator\",\n        \"Enabled\":  false,\n        \"PasswordNeverExpires\":  null,\n        \"LastLogon\":  null\n    },\n    {\n        \"Name\":  \"DefaultAccount\",\n        \"Enabled\":  false,\n        \"PasswordNeverExpires\":  null,\n        \"LastLogon\":  null\n    },\n    {\n        \"Name\":  \"Guest\",\n        \"Enabled\":  false,\n        \"PasswordNeverExpires\":  null,\n        \"LastLogon\":  null\n    },\n    {\n        \"Name\":  \"hihel\",\n        \"Enabled\":  true,\n        \"PasswordNeverExpires\":  null,\n        \"LastLogon\":  null\n    },\n    {\n        \"Name\":  \"WDAGUtilityAccount\",\n        \"Enabled\":  false,\n        \"PasswordNeverExpires\":  null,\n        \"LastLogon\":  null\n    }\n]",
+        "source": "Get-LocalUser | Select Name, Enabled, PasswordNeverExpires, LastLogon"
+      },
+      "local_admin_group_members": {
+        "value": [
+          {
+            "Name": "VM3-WIN10PRO\\Administrator",
+            "ObjectClass": "User",
+            "PrincipalSource": "Local"
+          },
+          {
+            "Name": "VM3-WIN10PRO\\hihel",
+            "ObjectClass": "User",
+            "PrincipalSource": "MicrosoftAccount"
+          }
+        ],
+        "evidence": "[\n    {\n        \"Name\":  \"VM3-WIN10PRO\\\\Administrator\",\n        \"ObjectClass\":  \"User\",\n        \"PrincipalSource\":  \"Local\"\n    },\n    {\n        \"Name\":  \"VM3-WIN10PRO\\\\hihel\",\n        \"ObjectClass\":  \"User\",\n        \"PrincipalSource\":  \"MicrosoftAccount\"\n    }\n]",
+        "source": "Get-LocalGroupMember -Group Administrators"
+      }
+    },
+    "updates": {
+      "windows_update_service": {
+        "value": {
+          "Status": "Stopped",
+          "StartType": "Manual"
+        },
+        "evidence": "{\n    \"Status\":  \"Stopped\",\n    \"StartType\":  \"Manual\"\n}",
+        "source": "Get-Service wuauserv (Status, StartType)"
+      },
+      "latest_hotfix": {
+        "value": {
+          "HotFixID": "KB5020683",
+          "InstalledOn": {
+            "value": "/Date(1770998400000)/",
+            "DateTime": "Saturday, 14 February, 2026 12:00:00 AM"
+          },
+          "Description": "Update"
+        },
+        "evidence": "{\n    \"HotFixID\":  \"KB5020683\",\n    \"InstalledOn\":  {\n                        \"value\":  \"\\/Date(1770998400000)\\/\",\n                        \"DateTime\":  \"Saturday, 14 February, 2026 12:00:00 AM\"\n                    },\n    \"Description\":  \"Update\"\n}",
+        "source": "Get-HotFix | Sort InstalledOn desc | Select -First 1"
+      }
+    },
+    "antivirus": {
+      "defender_status": {
+        "value": {
+          "AMServiceEnabled": true,
+          "AntivirusEnabled": true,
+          "RealTimeProtectionEnabled": true,
+          "AntivirusSignatureAge": 0,
+          "NISEnabled": true
+        },
+        "evidence": "{\n    \"AMServiceEnabled\":  true,\n    \"AntivirusEnabled\":  true,\n    \"RealTimeProtectionEnabled\":  true,\n    \"AntivirusSignatureAge\":  0,\n    \"NISEnabled\":  true\n}",
+        "source": "Get-MpComputerStatus"
+      }
+    },
+    "assets": {
+      "installed_software": {
+        "value": [
+          {
+            "DisplayName": "Git",
+            "DisplayVersion": "2.53.0",
+            "Publisher": "The Git Development Community",
+            "InstallDate": "20260214"
+          },
+          {
+            "DisplayName": "Microsoft Edge",
+            "DisplayVersion": "145.0.3800.58",
+            "Publisher": "Microsoft Corporation",
+            "InstallDate": "20260214"
+          },
+          {
+            "DisplayName": "Microsoft Edge WebView2 Runtime",
+            "DisplayVersion": "145.0.3800.58",
+            "Publisher": "Microsoft Corporation",
+            "InstallDate": "20260214"
+          },
+          {
+            "DisplayName": "Python 3.12.1 Add to Path (64-bit)",
+            "DisplayVersion": "3.12.1150.0",
+            "Publisher": "Python Software Foundation",
+            "InstallDate": "20260214"
+          },
+          {
+            "DisplayName": "Python 3.12.1 Core Interpreter (64-bit)",
+            "DisplayVersion": "3.12.1150.0",
+            "Publisher": "Python Software Foundation",
+            "InstallDate": "20260214"
+          },
+          {
+            "DisplayName": "Python 3.12.1 Development Libraries (64-bit)",
+            "DisplayVersion": "3.12.1150.0",
+            "Publisher": "Python Software Foundation",
+            "InstallDate": "20260214"
+          },
+          {
+            "DisplayName": "Python 3.12.1 Documentation (64-bit)",
+            "DisplayVersion": "3.12.1150.0",
+            "Publisher": "Python Software Foundation",
+            "InstallDate": "20260214"
+          },
+          {
+            "DisplayName": "Python 3.12.1 Executables (64-bit)",
+            "DisplayVersion": "3.12.1150.0",
+            "Publisher": "Python Software Foundation",
+            "InstallDate": "20260214"
+          },
+          {
+            "DisplayName": "Python 3.12.1 pip Bootstrap (64-bit)",
+            "DisplayVersion": "3.12.1150.0",
+            "Publisher": "Python Software Foundation",
+            "InstallDate": "20260214"
+          },
+          {
+            "DisplayName": "Python 3.12.1 Standard Library (64-bit)",
+            "DisplayVersion": "3.12.1150.0",
+            "Publisher": "Python Software Foundation",
+            "InstallDate": "20260214"
+          },
+          {
+            "DisplayName": "Python 3.12.1 Tcl/Tk Support (64-bit)",
+            "DisplayVersion": "3.12.1150.0",
+            "Publisher": "Python Software Foundation",
+            "InstallDate": "20260214"
+          },
+          {
+            "DisplayName": "Python 3.12.1 Test Suite (64-bit)",
+            "DisplayVersion": "3.12.1150.0",
+            "Publisher": "Python Software Foundation",
+            "InstallDate": "20260214"
+          },
+          {
+            "DisplayName": "Python Launcher",
+            "DisplayVersion": "3.12.1150.0",
+            "Publisher": "Python Software Foundation",
+            "InstallDate": "20260214"
+          }
+        ],
+        "evidence": "Collected 13 installed applications. Preview: Git, Microsoft Edge, Microsoft Edge WebView2 Runtime, Python 3.12.1 Add to Path (64-bit), Python 3.12.1 Core Interpreter (64-bit)",
+        "source": "Registry Uninstall keys (HKLM + WOW6432Node)"
+      }
+    }
+  },
+  "errors": []
+}

@@ -1,0 +1,119 @@
+{
+  "hostname": "vm1-ubuntu",
+  "ip_address": "192.168.56.100",
+  "os_type": "Linux",
+  "os_version": "Linux-5.15.0-164-generic-x86_64-with-glibc2.35",
+  "timestamp_utc": "2026-02-16T07:05:11.820698+00:00",
+  "results": {
+    "logging": {
+      "rsyslog_running": {
+        "value": false,
+        "evidence": "inactive",
+        "source": "systemctl is-active rsyslog"
+      },
+      "auth_log_exists": {
+        "value": true,
+        "evidence": "/var/log/auth.log",
+        "source": "os.path.exists"
+      },
+      "syslog_exists": {
+        "value": true,
+        "evidence": "/var/log/syslog",
+        "source": "os.path.exists"
+      },
+      "failed_ssh_logins_snippet": {
+        "value": "none",
+        "evidence": "No failed SSH logins found",
+        "source": "bash -lc grep -F 'Failed password' /var/log/auth.log | tail -n 5"
+      },
+      "sudo_usage_snippet": {
+        "value": "Jan 28 12:26:00 vm1-ubuntu sudo:    audit : TTY=tty1 ; PWD=/home/audit ; USER=root ; COMMAND=/usr/sbin/ufw status\nJan 28 12:26:00 vm1-ubuntu sudo: pam_unix(sudo:session): session opened for user root(uid=0) by audit(uid=1000)\nJan 28 12:26:00 vm1-ubuntu sudo: pam_unix(sudo:session): session closed for user root\nJan 28 12:26:55 vm1-ubuntu sudo:    audit : TTY=tty1 ; PWD=/home/audit ; USER=root ; COMMAND=/usr/bin/systemctl stop rsyslog\nJan 28 12:26:55 vm1-ubuntu sudo: pam_unix(sudo:session): session opened for user root(uid=0) by audit(uid=1000)",
+        "evidence": "Jan 28 12:26:00 vm1-ubuntu sudo:    audit : TTY=tty1 ; PWD=/home/audit ; USER=root ; COMMAND=/usr/sbin/ufw status\nJan 28 12:26:00 vm1-ubuntu sudo: pam_unix(sudo:session): session opened for user root(uid=0) by audit(uid=1000)\nJan 28 12:26:00 vm1-ubuntu sudo: pam_unix(sudo:session): session closed for user root\nJan 28 12:26:55 vm1-ubuntu sudo:    audit : TTY=tty1 ; PWD=/home/audit ; USER=root ; COMMAND=/usr/bin/systemctl stop rsyslog\nJan 28 12:26:55 vm1-ubuntu sudo: pam_unix(sudo:session): session opened for user root(uid=0) by audit(uid=1000)",
+        "source": "bash -lc grep -F 'sudo' /var/log/auth.log | tail -n 5"
+      }
+    },
+    "firewall": {
+      "ufw_status": {
+        "value": "inactive",
+        "evidence": "Status: inactive",
+        "source": "sudo -n ufw status"
+      }
+    },
+    "access_control": {
+      "ssh_permit_root_login": {
+        "value": "yes",
+        "evidence": "PermitRootLogin yes",
+        "source": "/etc/ssh/sshd_config"
+      },
+      "ssh_password_authentication": {
+        "value": "yes",
+        "evidence": "PasswordAuthentication yes",
+        "source": "/etc/ssh/sshd_config"
+      }
+    },
+    "ports": {
+      "listening_ports": {
+        "value": "captured",
+        "evidence": "Netid State  Recv-Q Send-Q         Local Address:Port Peer Address:PortProcess\nudp   UNCONN 0      0              127.0.0.53%lo:53        0.0.0.0:*          \nudp   UNCONN 0      0      192.168.56.100%enp0s8:68        0.0.0.0:*          \nudp   UNCONN 0      0           10.0.2.15%enp0s3:68        0.0.0.0:*          \ntcp   LISTEN 0      4096           127.0.0.53%lo:53        0.0.0.0:*          \ntcp   LISTEN 0      128                  0.0.0.0:22        0.0.0.0:*          \ntcp   LISTEN 0      128                     [::]:22           [::]:*",
+        "source": "ss -tuln"
+      }
+    },
+    "asset": {
+      "os_pretty_name": {
+        "value": "Ubuntu 22.04.3 LTS",
+        "evidence": "Ubuntu 22.04.3 LTS",
+        "source": "/etc/os-release"
+      },
+      "kernel_version": {
+        "value": "5.15.0-164-generic",
+        "evidence": "5.15.0-164-generic",
+        "source": "uname -r"
+      },
+      "pending_updates_count": {
+        "value": 105,
+        "evidence": "upgradable packages: 105",
+        "source": "bash -lc apt list --upgradable 2>/dev/null | tail -n +2 | wc -l"
+      }
+    },
+    "crypto": {
+      "ssh_ciphers": {
+        "value": "default",
+        "evidence": "Ciphers default",
+        "source": "/etc/ssh/sshd_config"
+      },
+      "ssh_macs": {
+        "value": "default",
+        "evidence": "MACs default",
+        "source": "/etc/ssh/sshd_config"
+      },
+      "ssh_kex_algorithms": {
+        "value": "default",
+        "evidence": "KexAlgorithms default",
+        "source": "/etc/ssh/sshd_config"
+      },
+      "sshd_effective_ciphers": {
+        "value": "chacha20-poly1305@openssh.com,aes128-ctr,aes192-ctr,aes256-ctr,aes128-gcm@openssh.com,aes256-gcm@openssh.com",
+        "evidence": "sshd -T (effective config captured)",
+        "source": "sudo -n sshd -T"
+      },
+      "sshd_effective_macs": {
+        "value": "umac-64-etm@openssh.com,umac-128-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com,hmac-sha1-etm@openssh.com,umac-64@openssh.com,umac-128@openssh.com,hmac-sha2-256,hmac-sha2-512,hmac-sha1",
+        "evidence": "sshd -T (effective config captured)",
+        "source": "sudo -n sshd -T"
+      },
+      "sshd_effective_kex": {
+        "value": "curve25519-sha256,curve25519-sha256@libssh.org,ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,sntrup761x25519-sha512@openssh.com,diffie-hellman-group-exchange-sha256,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512,diffie-hellman-group14-sha256",
+        "evidence": "sshd -T (effective config captured)",
+        "source": "sudo -n sshd -T"
+      },
+      "weak_algorithms_detected": {
+        "value": [
+          "hmac-sha1"
+        ],
+        "evidence": "hmac-sha1",
+        "source": "static weak markers (cbc, 3des, sha1, group1/group14)"
+      }
+    }
+  },
+  "errors": []
+}

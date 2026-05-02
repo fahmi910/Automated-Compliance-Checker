@@ -45,7 +45,39 @@ def init_db() -> None:
                 agent_timestamp TEXT NOT NULL,
                 received_at TEXT NOT NULL,
                 raw_json TEXT NOT NULL,
+                evaluated_json TEXT,
                 FOREIGN KEY(host_id) REFERENCES hosts(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS audit_scores (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            audit_id INTEGER NOT NULL UNIQUE,
+            platform TEXT NOT NULL,
+            overall_score REAL NOT NULL,
+            overall_level TEXT NOT NULL,
+            any_high_fail INTEGER NOT NULL,
+            domain_scores_json TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (audit_id) REFERENCES audits(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS control_results (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            audit_id INTEGER NOT NULL,
+            control_id TEXT NOT NULL,
+            title TEXT,
+            domain TEXT NOT NULL,
+            platform TEXT NOT NULL,
+            status TEXT NOT NULL,
+            severity TEXT NOT NULL,
+            evidence_path TEXT NOT NULL,
+            evidence_value_json TEXT,
+            reason TEXT,
+            recommendation TEXT,
+            iso_mapping TEXT,
+            pdpa_mapping TEXT,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (audit_id) REFERENCES audits(id)
             );
             """
         )

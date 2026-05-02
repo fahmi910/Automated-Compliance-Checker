@@ -1,0 +1,142 @@
+{
+  "hostname": "VM3-WIN10PRO",
+  "ip_address": "10.0.2.15",
+  "os_type": "Windows",
+  "os_version": "Windows-10-10.0.19045-SP0",
+  "timestamp_utc": "2026-02-14T17:08:11.908203+00:00",
+  "platform": "windows10",
+  "evaluated_controls": 5,
+  "scores": {
+    "overall": {
+      "score": 64.29,
+      "level": "Critical",
+      "earned_points": 9,
+      "max_points": 14,
+      "any_high_fail": true
+    },
+    "domains": {
+      "Asset & Configuration Management": {
+        "score": 37.5,
+        "level": "Critical",
+        "earned_points": 3,
+        "max_points": 8,
+        "high_fail_count": 1
+      },
+      "Logging & Monitoring": {
+        "score": 100.0,
+        "level": "Excellent",
+        "earned_points": 3,
+        "max_points": 3,
+        "high_fail_count": 0
+      },
+      "Access Control": {
+        "score": 100.0,
+        "level": "Excellent",
+        "earned_points": 3,
+        "max_points": 3,
+        "high_fail_count": 0
+      }
+    }
+  },
+  "top_failed": [
+    {
+      "control_id": "FW-W10-01",
+      "title": "Windows Firewall enabled for all profiles",
+      "domain": "Asset & Configuration Management",
+      "severity": "high",
+      "reason": "item Domain has Enabled=0 (expected 1)"
+    },
+    {
+      "control_id": "UPD-W10-01",
+      "title": "Windows Update service is running",
+      "domain": "Asset & Configuration Management",
+      "severity": "medium",
+      "reason": "expected 'Running', got 'Stopped'"
+    }
+  ],
+  "results": [
+    {
+      "control_id": "FW-W10-01",
+      "title": "Windows Firewall enabled for all profiles",
+      "status": "FAIL",
+      "severity": "high",
+      "domain": "Asset & Configuration Management",
+      "platform": "windows10",
+      "reason": "item Domain has Enabled=0 (expected 1)",
+      "evidence_path": "results.firewall.firewall_profiles.value",
+      "evidence_value": [
+        {
+          "Name": "Domain",
+          "Enabled": 0
+        },
+        {
+          "Name": "Private",
+          "Enabled": 0
+        },
+        {
+          "Name": "Public",
+          "Enabled": 0
+        }
+      ],
+      "recommendation": "Enable Windows Firewall for Domain/Private/Public profiles and allow only required inbound ports.",
+      "iso_mapping": "ISO27001 Annex A (Network Security)",
+      "pdpa_mapping": "Security principle: reduce attack surface."
+    },
+    {
+      "control_id": "LOG-W10-01",
+      "title": "Windows Event Log service is running",
+      "status": "PASS",
+      "severity": "high",
+      "domain": "Logging & Monitoring",
+      "platform": "windows10",
+      "reason": "expected 'Running', got 'Running'",
+      "evidence_path": "results.logging.eventlog_service.value.Status",
+      "evidence_value": "Running",
+      "recommendation": "Start Windows Event Log service and ensure Security events are recorded.",
+      "iso_mapping": "ISO27001 Annex A (Logging)",
+      "pdpa_mapping": "Security principle: maintain audit trails."
+    },
+    {
+      "control_id": "AC-W10-01",
+      "title": "Password complexity is enabled",
+      "status": "PASS",
+      "severity": "high",
+      "domain": "Access Control",
+      "platform": "windows10",
+      "reason": "expected 'PasswordComplexity = 1', got 'PasswordComplexity = 1'",
+      "evidence_path": "results.access_control.password_complexity_policy.value.password_complexity",
+      "evidence_value": "PasswordComplexity = 1",
+      "recommendation": "Enable password complexity requirements in Local Security Policy.",
+      "iso_mapping": "ISO27001 Annex A (Access Control)",
+      "pdpa_mapping": "Security principle: strengthen authentication."
+    },
+    {
+      "control_id": "UPD-W10-01",
+      "title": "Windows Update service is running",
+      "status": "FAIL",
+      "severity": "medium",
+      "domain": "Asset & Configuration Management",
+      "platform": "windows10",
+      "reason": "expected 'Running', got 'Stopped'",
+      "evidence_path": "results.updates.windows_update_service.value.Status",
+      "evidence_value": "Stopped",
+      "recommendation": "Enable Windows Update service and apply the latest patches.",
+      "iso_mapping": "ISO27001 Annex A (Vulnerability/Patch Management)",
+      "pdpa_mapping": "Security principle: reduce exploitation risk."
+    },
+    {
+      "control_id": "EP-W10-01",
+      "title": "Real-time antivirus protection is enabled",
+      "status": "PASS",
+      "severity": "high",
+      "domain": "Asset & Configuration Management",
+      "platform": "windows10",
+      "reason": "expected True, got True",
+      "evidence_path": "results.antivirus.defender_status.value.RealTimeProtectionEnabled",
+      "evidence_value": true,
+      "recommendation": "Enable Microsoft Defender real-time protection and ensure signatures are up to date.",
+      "iso_mapping": "ISO27001 Annex A (Protection against malware)",
+      "pdpa_mapping": "Security principle: prevent malware incidents affecting personal data."
+    }
+  ]
+}

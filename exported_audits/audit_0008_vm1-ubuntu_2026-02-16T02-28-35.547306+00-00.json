@@ -1,0 +1,117 @@
+{
+  "hostname": "vm1-ubuntu",
+  "ip_address": "10.0.2.15",
+  "os_type": "Linux",
+  "os_version": "Linux-5.15.0-164-generic-x86_64-with-glibc2.35",
+  "timestamp_utc": "2026-02-16T02:28:33.621732+00:00",
+  "results": {
+    "logging": {
+      "rsyslog_running": {
+        "value": true,
+        "evidence": "active",
+        "source": "systemctl is-active rsyslog"
+      },
+      "auth_log_exists": {
+        "value": true,
+        "evidence": "/var/log/auth.log",
+        "source": "os.path.exists"
+      },
+      "syslog_exists": {
+        "value": true,
+        "evidence": "/var/log/syslog",
+        "source": "os.path.exists"
+      },
+      "failed_ssh_logins_snippet": {
+        "value": "none",
+        "evidence": "No failed SSH logins found",
+        "source": "bash -lc grep -F 'Failed password' /var/log/auth.log | tail -n 5"
+      },
+      "sudo_usage_snippet": {
+        "value": "Feb 16 02:15:31 vm1-ubuntu sudo: pam_unix(sudo:session): session opened for user root(uid=0) by audit(uid=1000)\nFeb 16 02:15:31 vm1-ubuntu sudo: pam_unix(sudo:session): session closed for user root\nFeb 16 02:15:31 vm1-ubuntu sudo: pam_unix(sudo:auth): conversation failed\nFeb 16 02:15:31 vm1-ubuntu sudo: pam_unix(sudo:auth): auth could not identify password for [audit]\nFeb 16 02:15:31 vm1-ubuntu sudo:    audit : a password is required ; TTY=tty1 ; PWD=/home/audit/Automated-Compliance-Checker ; USER=root ; COMMAND=/usr/sbin/sshd -T",
+        "evidence": "Feb 16 02:15:31 vm1-ubuntu sudo: pam_unix(sudo:session): session opened for user root(uid=0) by audit(uid=1000)\nFeb 16 02:15:31 vm1-ubuntu sudo: pam_unix(sudo:session): session closed for user root\nFeb 16 02:15:31 vm1-ubuntu sudo: pam_unix(sudo:auth): conversation failed\nFeb 16 02:15:31 vm1-ubuntu sudo: pam_unix(sudo:auth): auth could not identify password for [audit]\nFeb 16 02:15:31 vm1-ubuntu sudo:    audit : a password is required ; TTY=tty1 ; PWD=/home/audit/Automated-Compliance-Checker ; USER=root ; COMMAND=/usr/sbin/sshd -T",
+        "source": "bash -lc grep -F 'sudo' /var/log/auth.log | tail -n 5"
+      }
+    },
+    "firewall": {
+      "ufw_status": {
+        "value": "active",
+        "evidence": "Status: active\n\nTo                         Action      From\n--                         ------      ----\nOpenSSH                    ALLOW       Anywhere                  \nOpenSSH (v6)               ALLOW       Anywhere (v6)",
+        "source": "sudo -n ufw status"
+      }
+    },
+    "access_control": {
+      "ssh_permit_root_login": {
+        "value": "no",
+        "evidence": "PermitRootLogin no",
+        "source": "/etc/ssh/sshd_config"
+      },
+      "ssh_password_authentication": {
+        "value": "no",
+        "evidence": "PasswordAuthentication no",
+        "source": "/etc/ssh/sshd_config"
+      }
+    },
+    "ports": {
+      "listening_ports": {
+        "value": "captured",
+        "evidence": "Netid State  Recv-Q Send-Q         Local Address:Port Peer Address:PortProcess\nudp   UNCONN 0      0              127.0.0.53%lo:53        0.0.0.0:*          \nudp   UNCONN 0      0      192.168.56.100%enp0s8:68        0.0.0.0:*          \nudp   UNCONN 0      0           10.0.2.15%enp0s3:68        0.0.0.0:*          \ntcp   LISTEN 0      128                  0.0.0.0:22        0.0.0.0:*          \ntcp   LISTEN 0      4096           127.0.0.53%lo:53        0.0.0.0:*          \ntcp   LISTEN 0      128                     [::]:22           [::]:*",
+        "source": "ss -tuln"
+      }
+    },
+    "asset": {
+      "os_pretty_name": {
+        "value": "Ubuntu 22.04.3 LTS",
+        "evidence": "Ubuntu 22.04.3 LTS",
+        "source": "/etc/os-release"
+      },
+      "kernel_version": {
+        "value": "5.15.0-164-generic",
+        "evidence": "5.15.0-164-generic",
+        "source": "uname -r"
+      },
+      "pending_updates_count": {
+        "value": 89,
+        "evidence": "upgradable packages: 89",
+        "source": "bash -lc apt list --upgradable 2>/dev/null | tail -n +2 | wc -l"
+      }
+    },
+    "crypto": {
+      "ssh_ciphers": {
+        "value": "default",
+        "evidence": "Ciphers default",
+        "source": "/etc/ssh/sshd_config"
+      },
+      "ssh_macs": {
+        "value": "default",
+        "evidence": "MACs default",
+        "source": "/etc/ssh/sshd_config"
+      },
+      "ssh_kex_algorithms": {
+        "value": "default",
+        "evidence": "KexAlgorithms default",
+        "source": "/etc/ssh/sshd_config"
+      },
+      "sshd_effective_ciphers": {
+        "value": "unknown",
+        "evidence": "sudo: a password is required",
+        "source": "sudo -n sshd -T"
+      },
+      "sshd_effective_macs": {
+        "value": "unknown",
+        "evidence": "sudo: a password is required",
+        "source": "sudo -n sshd -T"
+      },
+      "sshd_effective_kex": {
+        "value": "unknown",
+        "evidence": "sudo: a password is required",
+        "source": "sudo -n sshd -T"
+      },
+      "weak_algorithms_detected": {
+        "value": [],
+        "evidence": "none",
+        "source": "static weak markers (cbc, 3des, sha1, group1/group14)"
+      }
+    }
+  },
+  "errors": []
+}

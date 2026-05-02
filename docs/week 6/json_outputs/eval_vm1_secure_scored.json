@@ -1,0 +1,135 @@
+{
+  "hostname": "vm1-ubuntu",
+  "ip_address": "192.168.56.100",
+  "os_type": "Linux",
+  "os_version": "Linux-5.15.0-164-generic-x86_64-with-glibc2.35",
+  "timestamp_utc": "2026-02-16T02:42:40.187383+00:00",
+  "platform": "linux",
+  "evaluated_controls": 6,
+  "scores": {
+    "overall": {
+      "score": 100.0,
+      "level": "Excellent",
+      "earned_points": 17,
+      "max_points": 17,
+      "any_high_fail": false
+    },
+    "domains": {
+      "Access Control": {
+        "score": 100.0,
+        "level": "Excellent",
+        "earned_points": 6,
+        "max_points": 6,
+        "high_fail_count": 0
+      },
+      "Logging & Monitoring": {
+        "score": 100.0,
+        "level": "Excellent",
+        "earned_points": 5,
+        "max_points": 5,
+        "high_fail_count": 0
+      },
+      "Asset & Configuration Management": {
+        "score": 100.0,
+        "level": "Excellent",
+        "earned_points": 3,
+        "max_points": 3,
+        "high_fail_count": 0
+      },
+      "Cryptography Configuration": {
+        "score": 100.0,
+        "level": "Excellent",
+        "earned_points": 3,
+        "max_points": 3,
+        "high_fail_count": 0
+      }
+    }
+  },
+  "top_failed": [],
+  "results": [
+    {
+      "control_id": "AC-LNX-01",
+      "title": "Disable SSH root login",
+      "status": "PASS",
+      "severity": "high",
+      "domain": "Access Control",
+      "platform": "linux",
+      "reason": "expected 'no', got 'no'",
+      "evidence_path": "results.access_control.ssh_permit_root_login.value",
+      "evidence_value": "no",
+      "recommendation": "Set PermitRootLogin no in /etc/ssh/sshd_config and restart sshd.",
+      "iso_mapping": "ISO27001 Annex A (Access Control)",
+      "pdpa_mapping": "Security principle: protect personal data via strong access control."
+    },
+    {
+      "control_id": "AC-LNX-02",
+      "title": "Disable SSH password authentication",
+      "status": "PASS",
+      "severity": "high",
+      "domain": "Access Control",
+      "platform": "linux",
+      "reason": "expected 'no', got 'no'",
+      "evidence_path": "results.access_control.ssh_password_authentication.value",
+      "evidence_value": "no",
+      "recommendation": "Set PasswordAuthentication no in /etc/ssh/sshd_config. Use key-based authentication.",
+      "iso_mapping": "ISO27001 Annex A (Access Control)",
+      "pdpa_mapping": "Security principle: reduce credential compromise risk."
+    },
+    {
+      "control_id": "LOG-LNX-01",
+      "title": "System logging service (rsyslog) is running",
+      "status": "PASS",
+      "severity": "high",
+      "domain": "Logging & Monitoring",
+      "platform": "linux",
+      "reason": "expected True, got True",
+      "evidence_path": "results.logging.rsyslog_running.value",
+      "evidence_value": true,
+      "recommendation": "Enable and start rsyslog (or journald forwarding). Ensure logs are generated and retained.",
+      "iso_mapping": "ISO27001 Annex A (Logging & Monitoring)",
+      "pdpa_mapping": "Security principle: maintain audit trails to detect incidents."
+    },
+    {
+      "control_id": "LOG-LNX-02",
+      "title": "Authentication log file exists",
+      "status": "PASS",
+      "severity": "medium",
+      "domain": "Logging & Monitoring",
+      "platform": "linux",
+      "reason": "expected True, got True",
+      "evidence_path": "results.logging.auth_log_exists.value",
+      "evidence_value": true,
+      "recommendation": "Ensure /var/log/auth.log exists and SSH login events are recorded.",
+      "iso_mapping": "ISO27001 Annex A (Logging)",
+      "pdpa_mapping": "Security principle: keep access logs for accountability."
+    },
+    {
+      "control_id": "FW-LNX-01",
+      "title": "UFW firewall is active",
+      "status": "PASS",
+      "severity": "high",
+      "domain": "Asset & Configuration Management",
+      "platform": "linux",
+      "reason": "expected 'active', got 'active'",
+      "evidence_path": "results.firewall.ufw_status.value",
+      "evidence_value": "active",
+      "recommendation": "Enable UFW and allow only required ports. Example: ufw enable; ufw allow 22/tcp.",
+      "iso_mapping": "ISO27001 Annex A (Network Security / Configuration Management)",
+      "pdpa_mapping": "Security principle: prevent unauthorized access."
+    },
+    {
+      "control_id": "CRYPTO-LNX-01",
+      "title": "No weak SSH algorithms detected",
+      "status": "PASS",
+      "severity": "high",
+      "domain": "Cryptography Configuration",
+      "platform": "linux",
+      "reason": "expected empty list, got length=0",
+      "evidence_path": "results.crypto.weak_algorithms_detected.value",
+      "evidence_value": [],
+      "recommendation": "Remove weak SSH algorithms (cbc/3des/sha1/group1/group14). Use modern ciphers and KEX.",
+      "iso_mapping": "ISO27001 Annex A (Cryptography)",
+      "pdpa_mapping": "Security principle: strong cryptography protects data."
+    }
+  ]
+}

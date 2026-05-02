@@ -1,0 +1,128 @@
+{
+  "hostname": "WIN-HTB0GA8NCOV",
+  "ip_address": "10.0.2.15",
+  "os_type": "Windows",
+  "os_version": "Windows-2022Server-10.0.20348-SP0",
+  "timestamp_utc": "2026-02-09T02:13:25.999125+00:00",
+  "platform": "windows_server",
+  "evaluated_controls": 4,
+  "scores": {
+    "overall": {
+      "score": 45.45,
+      "level": "Critical",
+      "earned_points": 5,
+      "max_points": 11,
+      "any_high_fail": true
+    },
+    "domains": {
+      "Asset & Configuration Management": {
+        "score": 40.0,
+        "level": "Critical",
+        "earned_points": 2,
+        "max_points": 5,
+        "high_fail_count": 1
+      },
+      "Logging & Monitoring": {
+        "score": 100.0,
+        "level": "Excellent",
+        "earned_points": 3,
+        "max_points": 3,
+        "high_fail_count": 0
+      },
+      "Access Control": {
+        "score": 0.0,
+        "level": "Critical",
+        "earned_points": 0,
+        "max_points": 3,
+        "high_fail_count": 1
+      }
+    }
+  },
+  "top_failed": [
+    {
+      "control_id": "FW-WINSRV-01",
+      "title": "Windows Firewall enabled for all profiles",
+      "domain": "Asset & Configuration Management",
+      "severity": "high",
+      "reason": "item Domain has Enabled=0 (expected 1)"
+    },
+    {
+      "control_id": "AC-WINSRV-01",
+      "title": "Password complexity is enabled",
+      "domain": "Access Control",
+      "severity": "high",
+      "reason": "expected 'PasswordComplexity = 1', got 'PasswordComplexity = 0'"
+    }
+  ],
+  "results": [
+    {
+      "control_id": "FW-WINSRV-01",
+      "title": "Windows Firewall enabled for all profiles",
+      "status": "FAIL",
+      "severity": "high",
+      "domain": "Asset & Configuration Management",
+      "platform": "windows_server",
+      "reason": "item Domain has Enabled=0 (expected 1)",
+      "evidence_path": "results.firewall.firewall_profiles.value",
+      "evidence_value": [
+        {
+          "Name": "Domain",
+          "Enabled": 0
+        },
+        {
+          "Name": "Private",
+          "Enabled": 0
+        },
+        {
+          "Name": "Public",
+          "Enabled": 0
+        }
+      ],
+      "recommendation": "Enable Windows Firewall for Domain/Private/Public profiles and allow only required inbound ports.",
+      "iso_mapping": "ISO27001 Annex A (Network Security)",
+      "pdpa_mapping": "Security principle: reduce attack surface."
+    },
+    {
+      "control_id": "LOG-WINSRV-01",
+      "title": "Windows Event Log service is running",
+      "status": "PASS",
+      "severity": "high",
+      "domain": "Logging & Monitoring",
+      "platform": "windows_server",
+      "reason": "expected 'Running', got 'Running'",
+      "evidence_path": "results.logging.eventlog_service.value.Status",
+      "evidence_value": "Running",
+      "recommendation": "Start Windows Event Log service and ensure Security events are recorded.",
+      "iso_mapping": "ISO27001 Annex A (Logging)",
+      "pdpa_mapping": "Security principle: maintain audit trails."
+    },
+    {
+      "control_id": "AC-WINSRV-01",
+      "title": "Password complexity is enabled",
+      "status": "FAIL",
+      "severity": "high",
+      "domain": "Access Control",
+      "platform": "windows_server",
+      "reason": "expected 'PasswordComplexity = 1', got 'PasswordComplexity = 0'",
+      "evidence_path": "results.access_control.password_complexity_policy.value.password_complexity",
+      "evidence_value": "PasswordComplexity = 0",
+      "recommendation": "Enable password complexity requirements in Local Security Policy or domain policy.",
+      "iso_mapping": "ISO27001 Annex A (Access Control)",
+      "pdpa_mapping": "Security principle: strengthen authentication."
+    },
+    {
+      "control_id": "UPD-WINSRV-01",
+      "title": "Windows Update service is running",
+      "status": "PASS",
+      "severity": "medium",
+      "domain": "Asset & Configuration Management",
+      "platform": "windows_server",
+      "reason": "expected 'Running', got 'Running'",
+      "evidence_path": "results.updates.windows_update_service.value.Status",
+      "evidence_value": "Running",
+      "recommendation": "Enable Windows Update service and apply the latest patches.",
+      "iso_mapping": "ISO27001 Annex A (Vulnerability/Patch Management)",
+      "pdpa_mapping": "Security principle: reduce exploitation risk."
+    }
+  ]
+}

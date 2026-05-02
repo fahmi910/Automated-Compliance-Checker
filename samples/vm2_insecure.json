@@ -1,0 +1,229 @@
+{
+  "hostname": "WIN-HTB0GA8NCOV",
+  "ip_address": "10.0.2.15",
+  "os_type": "Windows",
+  "os_version": "Windows-2022Server-10.0.20348-SP0",
+  "timestamp_utc": "2026-02-09T02:13:25.999125+00:00",
+  "results": {
+    "firewall": {
+      "firewall_profiles": {
+        "value": [
+          {
+            "Name": "Domain",
+            "Enabled": 0
+          },
+          {
+            "Name": "Private",
+            "Enabled": 0
+          },
+          {
+            "Name": "Public",
+            "Enabled": 0
+          }
+        ],
+        "evidence": "[\n    {\n        \"Name\":  \"Domain\",\n        \"Enabled\":  0\n    },\n    {\n        \"Name\":  \"Private\",\n        \"Enabled\":  0\n    },\n    {\n        \"Name\":  \"Public\",\n        \"Enabled\":  0\n    }\n]",
+        "source": "Get-NetFirewallProfile | Select-Object Name, Enabled"
+      }
+    },
+    "logging": {
+      "eventlog_service": {
+        "value": {
+          "Status": "Running",
+          "StartType": "Automatic"
+        },
+        "evidence": "{\n    \"Status\":  \"Running\",\n    \"StartType\":  \"Automatic\"\n}",
+        "source": "Get-Service EventLog (Status, StartType)"
+      },
+      "last_security_event": {
+        "value": {
+          "TimeCreated": "/Date(1770602939487)/",
+          "Id": 4616,
+          "ProviderName": "Microsoft-Windows-Security-Auditing",
+          "Message": "The system time was changed.\r\n\r\nSubject:\r\n\tSecurity ID:\t\tS-1-5-19\r\n\tAccount Name:\t\tLOCAL SERVICE\r\n\tAccount Domain:\t\tNT AUTHORITY\r\n\tLogon ID:\t\t0x3E5\r\n\r\nProcess I"
+        },
+        "evidence": "{\n    \"TimeCreated\":  \"\\/Date(1770602939487)\\/\",\n    \"Id\":  4616,\n    \"ProviderName\":  \"Microsoft-Windows-Security-Auditing\",\n    \"Message\":  \"The system time was changed.\\r\\n\\r\\nSubject:\\r\\n\\tSecurity ID:\\t\\tS-1-5-19\\r\\n\\tAccount Name:\\t\\tLOCAL SERVICE\\r\\n\\tAccount Domain:\\t\\tNT AUTHORITY\\r\\n\\tLogon ID:\\t\\t0x3E5\\r\\n\\r\\nProcess I\"\n}",
+        "source": "Get-WinEvent -LogName Security -MaxEvents 1"
+      },
+      "failed_logins_4625": {
+        "value": [],
+        "evidence": "No matching events found in last 7 days",
+        "source": "Get-WinEvent Security Id=4625 (last 7 days) MaxEvents=3"
+      },
+      "success_logins_4624": {
+        "value": [],
+        "evidence": "No matching events found in last 7 days",
+        "source": "Get-WinEvent Security Id=4624 (last 7 days) MaxEvents=3"
+      }
+    },
+    "access_control": {
+      "net_accounts_policy": {
+        "value": "Force user logoff how long after time expires?:       Never\r\nMinimum password age (days):                          0\r\nMaximum password age (days):                          42\r\nMinimum password length:                              4\r\nLength of password history maintained:                None\r\nLockout threshold:                                    Never\r\nLockout duration (minutes):                           30\r\nLockout observation window (minutes):                 30\r\nComputer role:                                        SERVER\r\nThe command completed successfully.\r\n\r\n",
+        "evidence": "\"Force user logoff how long after time expires?:       Never\\r\\nMinimum password age (days):                          0\\r\\nMaximum password age (days):                          42\\r\\nMinimum password length:                              4\\r\\nLength of password history maintained:                None\\r\\nLockout threshold:                                    Never\\r\\nLockout duration (minutes):                           30\\r\\nLockout observation window (minutes):                 30\\r\\nComputer role:                                        SERVER\\r\\nThe command completed successfully.\\r\\n\\r\\n\"",
+        "source": "net accounts"
+      },
+      "password_complexity_policy": {
+        "value": {
+          "file": "C:\\Temp\\secpol.cfg",
+          "password_complexity": "PasswordComplexity = 0"
+        },
+        "evidence": "{\n    \"file\":  \"C:\\\\Temp\\\\secpol.cfg\",\n    \"password_complexity\":  \"PasswordComplexity = 0\"\n}",
+        "source": "secedit /export + PasswordComplexity"
+      },
+      "local_users": {
+        "value": [
+          {
+            "Name": "Administrator",
+            "Enabled": true,
+            "PasswordNeverExpires": null,
+            "LastLogon": "/Date(1770660421124)/"
+          },
+          {
+            "Name": "DefaultAccount",
+            "Enabled": false,
+            "PasswordNeverExpires": null,
+            "LastLogon": null
+          },
+          {
+            "Name": "Guest",
+            "Enabled": false,
+            "PasswordNeverExpires": null,
+            "LastLogon": null
+          },
+          {
+            "Name": "WDAGUtilityAccount",
+            "Enabled": false,
+            "PasswordNeverExpires": null,
+            "LastLogon": null
+          }
+        ],
+        "evidence": "[\n    {\n        \"Name\":  \"Administrator\",\n        \"Enabled\":  true,\n        \"PasswordNeverExpires\":  null,\n        \"LastLogon\":  \"\\/Date(1770660421124)\\/\"\n    },\n    {\n        \"Name\":  \"DefaultAccount\",\n        \"Enabled\":  false,\n        \"PasswordNeverExpires\":  null,\n        \"LastLogon\":  null\n    },\n    {\n        \"Name\":  \"Guest\",\n        \"Enabled\":  false,\n        \"PasswordNeverExpires\":  null,\n        \"LastLogon\":  null\n    },\n    {\n        \"Name\":  \"WDAGUtilityAccount\",\n        \"Enabled\":  false,\n        \"PasswordNeverExpires\":  null,\n        \"LastLogon\":  null\n    }\n]",
+        "source": "Get-LocalUser | Select Name, Enabled, PasswordNeverExpires, LastLogon"
+      },
+      "local_admin_group_members": {
+        "value": {
+          "Name": "WIN-HTB0GA8NCOV\\Administrator",
+          "ObjectClass": "User",
+          "PrincipalSource": "Local"
+        },
+        "evidence": "{\n    \"Name\":  \"WIN-HTB0GA8NCOV\\\\Administrator\",\n    \"ObjectClass\":  \"User\",\n    \"PrincipalSource\":  \"Local\"\n}",
+        "source": "Get-LocalGroupMember -Group Administrators"
+      }
+    },
+    "updates": {
+      "windows_update_service": {
+        "value": {
+          "Status": "Running",
+          "StartType": "Manual"
+        },
+        "evidence": "{\n    \"Status\":  \"Running\",\n    \"StartType\":  \"Manual\"\n}",
+        "source": "Get-Service wuauserv (Status, StartType)"
+      },
+      "latest_hotfix": {
+        "value": {
+          "HotFixID": "KB5010523",
+          "InstalledOn": {
+            "value": "/Date(1646294400000)/",
+            "DateTime": "Thursday, March 3, 2022 12:00:00 AM"
+          },
+          "Description": "Update"
+        },
+        "evidence": "{\n    \"HotFixID\":  \"KB5010523\",\n    \"InstalledOn\":  {\n                        \"value\":  \"\\/Date(1646294400000)\\/\",\n                        \"DateTime\":  \"Thursday, March 3, 2022 12:00:00 AM\"\n                    },\n    \"Description\":  \"Update\"\n}",
+        "source": "Get-HotFix | Sort InstalledOn desc | Select -First 1"
+      }
+    },
+    "antivirus": {
+      "defender_status": {
+        "value": {
+          "AMServiceEnabled": true,
+          "AntivirusEnabled": true,
+          "RealTimeProtectionEnabled": true,
+          "AntivirusSignatureAge": 0,
+          "NISEnabled": true
+        },
+        "evidence": "{\n    \"AMServiceEnabled\":  true,\n    \"AntivirusEnabled\":  true,\n    \"RealTimeProtectionEnabled\":  true,\n    \"AntivirusSignatureAge\":  0,\n    \"NISEnabled\":  true\n}",
+        "source": "Get-MpComputerStatus"
+      }
+    },
+    "assets": {
+      "installed_software": {
+        "value": [
+          {
+            "DisplayName": "Git",
+            "DisplayVersion": "2.52.0",
+            "Publisher": "The Git Development Community",
+            "InstallDate": "20260201"
+          },
+          {
+            "DisplayName": "Microsoft Edge",
+            "DisplayVersion": "144.0.3719.104",
+            "Publisher": "Microsoft Corporation",
+            "InstallDate": "20260201"
+          },
+          {
+            "DisplayName": "Python 3.12.0 Add to Path (64-bit)",
+            "DisplayVersion": "3.12.150.0",
+            "Publisher": "Python Software Foundation",
+            "InstallDate": "20260201"
+          },
+          {
+            "DisplayName": "Python 3.12.0 Core Interpreter (64-bit)",
+            "DisplayVersion": "3.12.150.0",
+            "Publisher": "Python Software Foundation",
+            "InstallDate": "20260201"
+          },
+          {
+            "DisplayName": "Python 3.12.0 Development Libraries (64-bit)",
+            "DisplayVersion": "3.12.150.0",
+            "Publisher": "Python Software Foundation",
+            "InstallDate": "20260201"
+          },
+          {
+            "DisplayName": "Python 3.12.0 Documentation (64-bit)",
+            "DisplayVersion": "3.12.150.0",
+            "Publisher": "Python Software Foundation",
+            "InstallDate": "20260201"
+          },
+          {
+            "DisplayName": "Python 3.12.0 Executables (64-bit)",
+            "DisplayVersion": "3.12.150.0",
+            "Publisher": "Python Software Foundation",
+            "InstallDate": "20260201"
+          },
+          {
+            "DisplayName": "Python 3.12.0 pip Bootstrap (64-bit)",
+            "DisplayVersion": "3.12.150.0",
+            "Publisher": "Python Software Foundation",
+            "InstallDate": "20260201"
+          },
+          {
+            "DisplayName": "Python 3.12.0 Standard Library (64-bit)",
+            "DisplayVersion": "3.12.150.0",
+            "Publisher": "Python Software Foundation",
+            "InstallDate": "20260201"
+          },
+          {
+            "DisplayName": "Python 3.12.0 Tcl/Tk Support (64-bit)",
+            "DisplayVersion": "3.12.150.0",
+            "Publisher": "Python Software Foundation",
+            "InstallDate": "20260201"
+          },
+          {
+            "DisplayName": "Python 3.12.0 Test Suite (64-bit)",
+            "DisplayVersion": "3.12.150.0",
+            "Publisher": "Python Software Foundation",
+            "InstallDate": "20260201"
+          },
+          {
+            "DisplayName": "Python Launcher",
+            "DisplayVersion": "3.12.150.0",
+            "Publisher": "Python Software Foundation",
+            "InstallDate": "20260201"
+          }
+        ],
+        "evidence": "Collected 12 installed applications. Preview: Git, Microsoft Edge, Python 3.12.0 Add to Path (64-bit), Python 3.12.0 Core Interpreter (64-bit), Python 3.12.0 Development Libraries (64-bit)",
+        "source": "Registry Uninstall keys (HKLM + WOW6432Node)"
+      }
+    }
+  },
+  "errors": []
+}
