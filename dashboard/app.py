@@ -41,13 +41,17 @@ def risk_label(score_val):
     try:
         s = float(score_val)
     except Exception:
-        return ("Unknown", None)
+        return ("Unknown", "⚪")
 
     if s >= 80:
-        return ("Good", "🟢")
-    if s >= 50:
+        return ("Severe", "🔴")
+    if s >= 60:
+        return ("Critical", "🟥")
+    if s >= 40:
+        return ("High", "🟠")
+    if s >= 20:
         return ("Moderate", "🟡")
-    return ("High Risk", "🔴")
+    return ("Low", "🟢")
 
 
 def compute_counts(df_controls: pd.DataFrame):
@@ -100,104 +104,93 @@ def sidebar_server_status():
 def normalize_control_results(control_results: list) -> pd.DataFrame:
     if not control_results:
         return pd.DataFrame(
-            columns=["control_id", "domain", "status", "severity", "evidence", "recommendation"]
+            columns=[
+                "control_id", "title", "domain", "status", "severity",
+                "residual_risk", "evidence", "recommendation"
+            ]
         )
 
     df = pd.DataFrame(control_results)
 
-    # Ensure core columns exist
-    for col in ["control_id", "domain", "status", "severity", "recommendation"]:
+    for col in ["control_id", "title", "domain", "status", "severity", "recommendation", "reason"]:
         if col not in df.columns:
             df[col] = None
 
-    # Build evidence from available fields in your API/DB
-    # Priority: reason -> evidence_value_json -> evidence_path
-    reason = df["reason"] if "reason" in df.columns else None
-    ev_json = df["evidence_value_json"] if "evidence_value_json" in df.columns else None
-    ev_path = df["evidence_path"] if "evidence_path" in df.columns else None
+    def get_residual_risk(row):
+        try:
+            return row.get("risk", {}).get("calculation", {}).get("residual_risk_final", 0.0)
+        except Exception:
+            return 0.0
 
-    def build_evidence_row(i: int) -> str:
-        r = str(reason.iloc[i]).strip() if reason is not None and pd.notna(reason.iloc[i]) else ""
-        v = str(ev_json.iloc[i]).strip() if ev_json is not None and pd.notna(ev_json.iloc[i]) else ""
-        p = str(ev_path.iloc[i]).strip() if ev_path is not None and pd.notna(ev_path.iloc[i]) else ""
+    def build_evidence(row):
+        reason = row.get("reason")
+        decision_source = row.get("decision_source")
+        fallback_note = row.get("fallback_note")
 
-        if r:
-            return r
-        if v and p:
-            return f"{p} = {v}"
-        if v:
-            return v
-        if p:
-            return p
-        return ""
+        primary = row.get("primary_evidence") or {}
+        secondary = row.get("secondary_evidence") or {}
 
-    df["evidence"] = [build_evidence_row(i) for i in range(len(df))]
+        if decision_source == "primary":
+            ev = primary
+        elif decision_source == "secondary":
+            ev = secondary
+        else:
+            ev = primary or secondary
 
-    return df[["control_id", "domain", "status", "severity", "evidence", "recommendation"]]
+        value = ev.get("value")
+        source = ev.get("source")
+        raw = ev.get("raw_snippet")
 
+        parts = []
+        if reason:
+            parts.append(str(reason))
+        if value is not None:
+            parts.append(f"Value: {value}")
+        if source:
+            parts.append(f"Source: {source}")
+        if raw:
+            parts.append(f"Evidence: {raw}")
+        if fallback_note:
+            parts.append(f"Fallback: {fallback_note}")
 
-def get_score_summary(score_obj: dict) -> dict:
-    """
-    score_obj from API:
-    {
-      audit_id,
-      received_at,
-      score: { ... row from audit_scores ... },
-      control_results: [...]
-    }
+        return " | ".join(parts)
 
-    Your audit_scores contains:
-      - overall_score
-      - overall_level
-      - any_high_fail
-      - domain_scores_json (JSON string)
-    """
-    if not score_obj:
+    df["residual_risk"] = df.apply(get_residual_risk, axis=1)
+    df["evidence"] = df.apply(build_evidence, axis=1)
+
+    return df[
+        [
+            "control_id",
+            "title",
+            "domain",
+            "status",
+            "severity",
+            "residual_risk",
+            "evidence",
+            "recommendation",
+        ]
+    ]
+
+def get_score_summary(ev: dict) -> dict:
+    if not ev:
         return {}
 
-    score = score_obj.get("score") or {}
-
-    # Overall score: your DB uses overall_score
-    overall = score.get("overall_score")
-    if overall is None:
-        # fallback if name differs
-        for k in ["overall", "total_score", "score"]:
-            if k in score:
-                overall = score.get(k)
-                break
-
-    # Domain scores: parse domain_scores_json if present
-    domains_raw = {}
-    domain_scores_json = score.get("domain_scores_json")
-
-    if domain_scores_json:
-        try:
-            domains_raw = json.loads(domain_scores_json)
-        except Exception:
-            domains_raw = {}
-
-    # Convert domain raw object into simple summary dict:
-    # {
-    #   "Access Control": {"score": 29.41, "level": "...", ...},
-    #   ...
-    # }
-    domain_scores = {}
-    for domain_name, info in (domains_raw or {}).items():
-        if isinstance(info, dict):
-            domain_scores[domain_name] = {
-                "score": info.get("score"),
-                "level": info.get("level"),
-                "earned_points": info.get("earned_points"),
-                "max_points": info.get("max_points"),
-                "high_fail_count": info.get("high_fail_count"),
-            }
+    scores = ev.get("scores", {})
+    summary = scores.get("summary", {})
+    compliance = scores.get("compliance", {})
+    risk = scores.get("risk", {})
+    domains = scores.get("domains", {})
 
     return {
-        "overall": overall,
-        "domain_scores": domain_scores,   # now contains per-domain scores!
-        "raw": score,
+        "compliance_score": summary.get("compliance_score"),
+        "risk_score": summary.get("risk_score"),
+        "risk_level": summary.get("risk_level"),
+        "earned_points": compliance.get("earned_points"),
+        "max_points": compliance.get("max_points"),
+        "domain_scores": domains,
+        "top_risks": ev.get("top_risks") or scores.get("top_risks", []),
+        "raw": scores,
     }
-
 
 def page_overview():
     st.title("Overview")
@@ -224,7 +217,7 @@ def page_overview():
         try:
             ev = cached_latest_eval(hostname)
             score_summary = get_score_summary(ev)
-            df_controls = normalize_control_results(ev.get("control_results", []))
+            df_controls = normalize_control_results(ev.get("results", []))
 
             fail_df = df_controls[df_controls["status"].astype(str).str.upper() == "FAIL"]
             fail_count = int(len(fail_df))
@@ -236,7 +229,7 @@ def page_overview():
             elif fail_count > 0:
                 top_issue = str(fail_df.iloc[0]["control_id"])
 
-            risk_txt, risk_icon = risk_label(score_summary.get("overall"))
+            risk_txt, risk_icon = risk_label(score_summary.get("risk_score"))
 
             rows.append(
                 {
@@ -246,7 +239,7 @@ def page_overview():
                     "last_seen": fmt_dt(h.get("last_seen")),
                     "audit_id": ev.get("audit_id"),
                     "received_at": fmt_dt(ev.get("received_at")),
-                    "overall_score": score_summary.get("overall"),
+                    "overall_score": score_summary.get("compliance_score"),
                     "risk": f"{risk_icon or ''} {risk_txt}".strip(),
                     "fail_count": fail_count,
                     "top_issue": top_issue,
@@ -254,18 +247,16 @@ def page_overview():
             )
 
             # Collect risks across hosts
-            for _, r in fail_df.iterrows():
-                top_risks.append(
-                    {
-                        "hostname": hostname,
-                        "severity": r.get("severity"),
-                        "control_id": r.get("control_id"),
-                        "domain": r.get("domain"),
-                        "evidence": r.get("evidence"),
-                        "recommendation": r.get("recommendation"),
-                        "sev_rank": severity_rank(str(r.get("severity"))),
-                    }
-                )
+            for r in score_summary.get("top_risks", []):
+                top_risks.append({
+                    "hostname": hostname,
+                    "severity": r.get("severity"),
+                    "control_id": r.get("control_id"),
+                    "domain": r.get("domain"),
+                    "evidence": r.get("reason"),
+                    "recommendation": r.get("recommendation"),
+                    "sev_rank": severity_rank(str(r.get("severity"))),
+                })
 
         except Exception as e:
             rows.append(
@@ -329,7 +320,7 @@ def page_host_detail():
         return
 
     score_summary = get_score_summary(ev)
-    df_controls = normalize_control_results(ev.get("control_results", []))
+    df_controls = normalize_control_results(ev.get("results", []))
 
     st.caption(f"Audit ID: {ev.get('audit_id')}  |  Received at: {fmt_dt(ev.get('received_at'))}")
 
@@ -348,10 +339,15 @@ def page_host_detail():
     # Score area
     c1, c2 = st.columns([1, 2])
     with c1:
-        overall_val = score_summary.get("overall")
-        st.metric("Overall score", value=overall_val if overall_val is not None else "-")
-        risk_txt, risk_icon = risk_label(overall_val)
-        st.info(f"Risk status: {risk_icon or ''} {risk_txt}".strip())
+        compliance_score = score_summary.get("compliance_score")
+        risk_score = score_summary.get("risk_score")
+        risk_level = score_summary.get("risk_level")
+
+        st.metric("Compliance Score", f"{compliance_score}%" if compliance_score is not None else "-")
+        st.metric("Risk Score", f"{risk_score:.2f}" if risk_score is not None else "-")
+
+        risk_txt, risk_icon = risk_label(risk_score)
+        st.info(f"Risk Level: {risk_icon} {risk_level or risk_txt}")
 
     with c2:
         domain_scores = score_summary.get("domain_scores", {})
@@ -361,17 +357,52 @@ def page_host_detail():
             for dname, info in domain_scores.items():
                 rows.append({
                     "domain": dname,
-                    "score": info.get("score"),
-                    "level": info.get("level"),
-                    "earned_points": info.get("earned_points"),
-                    "max_points": info.get("max_points"),
+                    "compliance_score": info.get("compliance_score"),
+                    "risk_score": info.get("risk_score"),
+                    "risk_level": info.get("risk_level"),
+                    "earned_points": info.get("compliance_earned_points"),
+                    "max_points": info.get("compliance_max_points"),
                     "high_fail_count": info.get("high_fail_count"),
+                    "unknown_count": info.get("unknown_count"),
+                    "domain_escalated": info.get("domain_escalated"),
                 })
-            ds_df = pd.DataFrame(rows).sort_values(["score"], ascending=False)
+            ds_df = pd.DataFrame(rows).sort_values(["risk_score"], ascending=False)
             st.dataframe(ds_df, use_container_width=True, hide_index=True)
+            chart_df = ds_df[["domain", "risk_score"]].set_index("domain")
+            st.bar_chart(chart_df, use_container_width=True)
         else:
             st.info("No domain scores found.")
 
+    # ---------- TOP RISKS ----------
+    st.subheader("Top Risks")
+
+    top_risks = sorted(
+        score_summary.get("top_risks", []),
+        key=lambda x: x.get("residual_risk", 0),
+        reverse=True
+    )
+
+    if top_risks:
+        for r in top_risks[:5]:
+            msg = (
+                f"[{str(r.get('severity', '')).upper()}] {r.get('title')}\n"
+                f"Domain: {r.get('domain')} | Residual Risk: {r.get('residual_risk')}\n\n"
+                f"{r.get('reason')}\n\n"
+                f"Recommendation: {r.get('recommendation')}"
+            )
+
+            sev = str(r.get("severity", "")).lower()
+
+            if sev == "high":
+                st.error(msg)
+            elif sev == "medium":
+                st.warning(msg)
+            else:
+                st.info(msg)
+    else:
+        st.info("No major risks detected.")
+
+    # ---------- CONTROL TABLE ----------
     # Filters
     st.subheader("Control results")
     left, mid, right = st.columns([1, 1, 1])
@@ -434,8 +465,9 @@ def page_history():
 
     rows = []
     for a in audits:
-        score = a.get("score") or {}
-        overall = score.get("overall_score") or score.get("overall") or score.get("total_score") or score.get("score")
+        ev = cached_evaluated_by_id(a.get("audit_id"))
+        score_summary = get_score_summary(ev)
+        overall = score_summary.get("compliance_score")
 
         rows.append(
             {
@@ -514,8 +546,8 @@ def page_compare():
         return
 
     def overall_from(obj):
-        score = obj.get("score") or {}
-        return score.get("overall_score") or score.get("overall") or score.get("total_score") or score.get("score")
+        summary = get_score_summary(obj)
+        return summary.get("compliance_score")
 
     a_score = overall_from(A)
     b_score = overall_from(B)
@@ -527,8 +559,8 @@ def page_compare():
     with cB:
         st.metric("Audit B score", b_score if b_score is not None else "-")
 
-    dfA = normalize_control_results(A.get("control_results", []))
-    dfB = normalize_control_results(B.get("control_results", []))
+    dfA = normalize_control_results(A.get("results", []))
+    dfB = normalize_control_results(B.get("results", []))
 
     mapA = {r["control_id"]: r for _, r in dfA.iterrows()}
     mapB = {r["control_id"]: r for _, r in dfB.iterrows()}
