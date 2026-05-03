@@ -120,36 +120,6 @@ def submit():
     finally:
         conn.close()
 
-@app.post("/audits/<int:audit_id>/evaluate")
-def evaluate_audit_endpoint(audit_id: int):
-    # auth optional: reuse same API key or make admin key
-    conn = get_conn()
-    try:
-        cur = conn.cursor()
-        row = cur.execute(
-            "SELECT id, raw_json FROM audits WHERE id = ?",
-            (audit_id,),
-        ).fetchone()
-
-        if row is None:
-            return jsonify(error="Audit not found", audit_id=audit_id), 404
-
-        audit_json = json.loads(row["raw_json"])
-    finally:
-        conn.close()
-
-    # load controls
-    with open("rules/controls.json", "r", encoding="utf-8") as f:
-        controls_doc = json.load(f)
-        controls = controls_doc["controls"]
-        severity_weights = controls_doc.get("severity_weights", {"low": 1, "medium": 2, "high": 3})
-
-    evaluated = evaluate_audit(audit_json, controls, severity_weights)
-
-    # store into DB
-    save_evaluation(audit_id, evaluated)
-
-    return jsonify(status="ok", audit_id=audit_id, platform=evaluated.get("platform"), scores=evaluated.get("scores"))
 
 @app.get("/hosts")
 def list_hosts():
@@ -296,29 +266,26 @@ def evaluated_by_audit_id(audit_id: int):
         cur = conn.cursor()
 
         audit = cur.execute(
-            "SELECT id, received_at FROM audits WHERE id = ?",
+            """
+            SELECT id, received_at, evaluated_json
+            FROM audits
+            WHERE id = ?
+            """,
             (audit_id,),
         ).fetchone()
+
         if audit is None:
             return jsonify(error="Audit not found", audit_id=audit_id), 404
 
-        score = cur.execute(
-            "SELECT * FROM audit_scores WHERE audit_id = ?",
-            (audit_id,),
-        ).fetchone()
+        if not audit["evaluated_json"]:
+            return jsonify(error="Evaluation not available", audit_id=audit_id), 500
 
-        results = cur.execute(
-            "SELECT * FROM control_results WHERE audit_id = ?",
-            (audit_id,),
-        ).fetchall()
+        evaluated = json.loads(audit["evaluated_json"])
+        evaluated["audit_id"] = audit["id"]
+        evaluated["received_at"] = audit["received_at"]
 
-        out = {
-            "audit_id": audit_id,
-            "received_at": audit["received_at"],
-            "score": dict(score) if score else None,
-            "control_results": [dict(r) for r in results],
-        }
-        return jsonify(out)
+        return jsonify(evaluated)
+
     finally:
         conn.close()
 

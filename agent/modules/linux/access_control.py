@@ -115,3 +115,141 @@ def run() -> dict:
     )
 
     return results
+
+# ----------------------------------------------------------------
+# AC-LNX-03: Inactive local accounts disabled
+# AC-LNX-04: Account lockout policy configured
+# Added checks — appended to module
+# ----------------------------------------------------------------
+
+def _run_ac_extra_checks() -> dict:
+    """
+    Extra access control checks for AC-LNX-03 and AC-LNX-04.
+    Called from run_extra() which is imported by sample_linux.py via access_control.run_extra().
+    """
+    results = {}
+
+    # AC-LNX-03: accounts that have never logged in (lastlog)
+    ok_lastlog, lastlog_out = _run_cmd(["lastlog"], timeout=10)
+    never_logged = []
+    if ok_lastlog and lastlog_out:
+        for line in lastlog_out.splitlines()[1:]:  # skip header
+            parts = line.split()
+            if not parts:
+                continue
+            username = parts[0]
+            rest = " ".join(parts[1:]).lower()
+            if "never logged in" in rest:
+                never_logged.append(username)
+
+    results["accounts_never_logged_in"] = make_check(
+        value=never_logged,
+        evidence=(
+            f"Accounts with no login history: {', '.join(never_logged)}"
+            if never_logged else "No accounts with 'Never logged in' status found"
+        ),
+        source="lastlog",
+    )
+
+    # Shell accounts from /etc/passwd (uid >= 1000, login shell)
+    passwd_text = _read_file("/etc/passwd")
+    shell_accounts = []
+    no_login_shells = ["/sbin/nologin", "/bin/false", "/usr/sbin/nologin"]
+    for line in passwd_text.splitlines():
+        parts = line.split(":")
+        if len(parts) < 7:
+            continue
+        username, _, uid_str, _, _, _, shell = parts[:7]
+        try:
+            uid = int(uid_str)
+        except ValueError:
+            continue
+        if uid < 1000:
+            continue
+        if shell.strip() in no_login_shells:
+            continue
+        shell_accounts.append(username)
+
+    results["shell_accounts_passwd"] = make_check(
+        value=shell_accounts,
+        evidence=(
+            f"Human login accounts (uid>=1000, login shell): {', '.join(shell_accounts)}"
+            if shell_accounts else "No human accounts with login shells found"
+        ),
+        source="/etc/passwd",
+    )
+
+    # AC-LNX-04: Account lockout via PAM
+    pam_dirs = [
+        "/etc/pam.d/common-auth",
+        "/etc/pam.d/system-auth",
+        "/etc/pam.d/password-auth",
+    ]
+    faillock_found = False
+    tally2_found = False
+    pam_evidence_lines = []
+
+    for pam_path in pam_dirs:
+        pam_text = _read_file(pam_path)
+        if not pam_text:
+            continue
+        for line in pam_text.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("#"):
+                continue
+            low = stripped.lower()
+            if "pam_faillock" in low:
+                faillock_found = True
+                pam_evidence_lines.append(f"{pam_path}: {stripped[:120]}")
+            elif "pam_tally2" in low:
+                tally2_found = True
+                pam_evidence_lines.append(f"{pam_path}: {stripped[:120]}")
+
+    faillock_conf_text = _read_file("/etc/security/faillock.conf")
+    deny_value = "not_set"
+    unlock_value = "not_set"
+    if faillock_conf_text:
+        for line in faillock_conf_text.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("#"):
+                continue
+            if stripped.lower().startswith("deny"):
+                deny_value = stripped
+            if stripped.lower().startswith("unlock_time"):
+                unlock_value = stripped
+
+    lockout_mechanism = (
+        "pam_faillock" if faillock_found
+        else "pam_tally2" if tally2_found
+        else "none"
+    )
+
+    results["account_lockout_pam"] = make_check(
+        value=lockout_mechanism,
+        evidence=(
+            "\n".join(pam_evidence_lines[:6])
+            if pam_evidence_lines
+            else "No pam_faillock or pam_tally2 found in PAM configuration files"
+        ),
+        source=", ".join(pam_dirs),
+    )
+
+    results["faillock_conf_deny"] = make_check(
+        value=deny_value,
+        evidence=(
+            f"deny={deny_value}, unlock_time={unlock_value}"
+            if faillock_conf_text
+            else "/etc/security/faillock.conf not found"
+        ),
+        source="/etc/security/faillock.conf",
+    )
+
+    return results
+
+
+def run_extra() -> dict:
+    """
+    Returns additional access control evidence for AC-LNX-03 and AC-LNX-04.
+    Merged into the access_control key by sample_linux.py.
+    """
+    return _run_ac_extra_checks()

@@ -103,3 +103,57 @@ def run() -> dict:
     )
 
     return out
+
+
+# ----------------------------------------------------------------
+# AC-WINSVR-02 / AC-W10-02: Guest account disabled
+# Additional check appended to Windows access_control module
+# ----------------------------------------------------------------
+
+def run_guest_check() -> dict:
+    """
+    Checks whether the built-in Guest account is disabled.
+    Returns dict to be merged into access_control results.
+    """
+    import json as _json
+    from agent.utils.runner import run_powershell
+    from agent.utils.result import cmd_to_check
+
+    def obj_transform(stdout: str, stderr: str, rc: int):
+        stdout = (stdout or "").strip()
+        if stdout:
+            try:
+                data = _json.loads(stdout)
+                if isinstance(data, dict) and data.get("error"):
+                    return "error"
+                return data
+            except Exception:
+                pass
+        if rc != 0:
+            return "error"
+        return stdout if stdout else "error"
+
+    guest_raw = run_powershell(r"""
+    try {
+      $g = Get-LocalUser -Name "Guest" -ErrorAction SilentlyContinue
+      if ($g) {
+        [PSCustomObject]@{
+          Name    = $g.Name
+          Enabled = $g.Enabled
+          Description = $g.Description
+        } | ConvertTo-Json -Depth 3
+      } else {
+        [PSCustomObject]@{ note = "Guest account not found on this system" } | ConvertTo-Json -Depth 3
+      }
+    } catch {
+      [PSCustomObject]@{ error = $_.Exception.Message } | ConvertTo-Json -Depth 3
+    }
+    """)
+
+    return {
+        "guest_account": cmd_to_check(
+            guest_raw,
+            transform=obj_transform,
+            source_override="Get-LocalUser -Name Guest",
+        )
+    }

@@ -1,9 +1,12 @@
 {
   "version": "1.0",
   "description": "Control catalogue v1 for automated compliance checking (ISO27001 Annex A + PDPA 2010).",
-  "severity_weights": { "low": 1, "medium": 2, "high": 3 },
+  "severity_weights": {
+    "low": 1,
+    "medium": 2,
+    "high": 3
+  },
   "controls": [
-
     {
       "control_id": "AC-LNX-01",
       "title": "Disable SSH root login",
@@ -39,20 +42,17 @@
       "platform": "linux",
       "evaluator": "evaluate_ac_lnx_02",
       "severity": "high",
-
       "business_criticality": 4,
       "security_impact": 4,
       "asset_coverage": 4,
       "compliance_importance": 4,
       "exposure_profile": "remote_auth",
       "exposure_likelihood_base": 3,
-
       "recommendations": {
         "PASS": "No remediation needed.",
         "FAIL": "Disable SSH password authentication and use SSH key-based authentication.",
         "UNKNOWN": "Investigate why SSH password authentication evidence could not be collected."
       },
-
       "iso_mapping": [
         "A.5.15 Access control",
         "A.5.17 Authentication Information",
@@ -69,20 +69,17 @@
       "platform": "linux",
       "evaluator": "evaluate_log_lnx_01",
       "severity": "high",
-
       "business_criticality": 4,
       "security_impact": 5,
       "asset_coverage": 4,
       "compliance_importance": 4,
       "exposure_profile": "monitoring_visibility",
       "exposure_likelihood_base": 2,
-
       "recommendations": {
         "PASS": "No remediation needed.",
         "FAIL": "Start and enable rsyslog, then verify that system logs are being generated.",
         "UNKNOWN": "Investigate why logging service status or syslog evidence could not be collected."
       },
-
       "iso_mapping": [
         "A.8.15 Logging",
         "A.8.16 Monitoring Activities"
@@ -96,12 +93,26 @@
       "title": "Authentication log file exists",
       "domain": "Logging & Monitoring",
       "platform": "linux",
-      "evidence_path": "results.logging.auth_log_exists.value",
-      "rule": { "type": "must_be_true" },
+      "evaluator": "evaluate_log_lnx_02",
       "severity": "medium",
-      "recommendation": "Ensure /var/log/auth.log exists and SSH login events are recorded.",
-      "iso_mapping": "ISO27001 Annex A (Logging)",
-      "pdpa_mapping": "Security principle: keep access logs for accountability."
+      "business_criticality": 3,
+      "security_impact": 3,
+      "asset_coverage": 3,
+      "compliance_importance": 3,
+      "exposure_profile": "monitoring_visibility",
+      "exposure_likelihood_base": 2,
+      "recommendations": {
+        "PASS": "Authentication logs are present and recording events.",
+        "PARTIAL": "Authentication log exists but does not contain meaningful activity. Verify logging configuration.",
+        "FAIL": "Authentication log file is missing. Enable logging for authentication events.",
+        "UNKNOWN": "Unable to determine authentication log status."
+      },
+      "iso_mapping": [
+        "A.8.15 Logging"
+      ],
+      "pdpa_mapping": [
+        "Security principle: maintain access logs for accountability."
+      ]
     },
     {
       "control_id": "FW-LNX-01",
@@ -110,20 +121,17 @@
       "platform": "linux",
       "evaluator": "evaluate_fw_lnx_01",
       "severity": "high",
-
       "business_criticality": 4,
       "security_impact": 5,
       "asset_coverage": 4,
       "compliance_importance": 4,
       "exposure_profile": "network_defense",
       "exposure_likelihood_base": 3,
-
       "recommendations": {
         "PASS": "No remediation needed.",
         "FAIL": "Enable UFW and allow only required ports. Set default deny policy where appropriate.",
         "UNKNOWN": "Investigate why UFW firewall status or rules could not be collected."
       },
-
       "iso_mapping": [
         "A.8.20 Network security",
         "A.8.21 Security of network services",
@@ -140,20 +148,17 @@
       "platform": "linux",
       "evaluator": "evaluate_crypto_lnx_01",
       "severity": "high",
-
       "business_criticality": 4,
       "security_impact": 5,
       "asset_coverage": 4,
       "compliance_importance": 4,
       "exposure_profile": "secure_communication",
       "exposure_likelihood_base": 3,
-
       "recommendations": {
         "PASS": "No remediation needed.",
         "FAIL": "Remove weak SSH algorithms (CBC, 3DES, SHA1, weak KEX) and enforce modern secure configurations.",
         "UNKNOWN": "Investigate why SSH cryptographic configuration could not be evaluated."
       },
-
       "iso_mapping": [
         "A.8.24 Use of cryptography",
         "A.8.5 Secure authentication"
@@ -163,113 +168,510 @@
       ]
     },
     {
-      "control_id": "FW-WINSRV-01",
-      "title": "Windows Firewall enabled for all profiles",
+      "control_id": "FW-WINSVR-01",
+      "title": "Windows Firewall is enabled (Server)",
       "domain": "Asset & Configuration Management",
       "platform": "windows_server",
-      "evidence_path": "results.firewall.firewall_profiles.value",
-      "rule": { "type": "all_objects_field_equals", "field": "Enabled", "value": 1 },
+      "evaluator": "evaluate_fw_windows_01",
       "severity": "high",
-      "recommendation": "Enable Windows Firewall for Domain/Private/Public profiles and allow only required inbound ports.",
-      "iso_mapping": "ISO27001 Annex A (Network Security)",
-      "pdpa_mapping": "Security principle: reduce attack surface."
+      "business_criticality": 5,
+      "security_impact": 5,
+      "asset_coverage": 5,
+      "compliance_importance": 4,
+      "exposure_profile": "network_defense",
+      "exposure_likelihood_base": 3,
+      "recommendations": {
+        "PASS": "No remediation needed.",
+        "PARTIAL": "Firewall is enabled but inbound rules are permissive. Harden inbound policy.",
+        "FAIL": "Enable Windows Firewall for all profiles immediately.",
+        "UNKNOWN": "Investigate firewall profile retrieval issue."
+      },
+      "iso_mapping": [
+        "A.8.20 Network security",
+        "A.8.21 Security of network services",
+        "A.8.22 Segregation of networks"
+      ],
+      "pdpa_mapping": [
+        "Security principle: protect server from unauthorized network access."
+      ]
     },
     {
-      "control_id": "LOG-WINSRV-01",
-      "title": "Windows Event Log service is running",
+      "control_id": "LOG-WINSVR-01",
+      "title": "Windows Event Log Service is running",
       "domain": "Logging & Monitoring",
       "platform": "windows_server",
-      "evidence_path": "results.logging.eventlog_service.value.Status",
-      "rule": { "type": "must_equal", "value": "Running" },
+      "evaluator": "evaluate_log_windows_01",
       "severity": "high",
-      "recommendation": "Start Windows Event Log service and ensure Security events are recorded.",
-      "iso_mapping": "ISO27001 Annex A (Logging)",
-      "pdpa_mapping": "Security principle: maintain audit trails."
+      "business_criticality": 5,
+      "security_impact": 5,
+      "asset_coverage": 5,
+      "compliance_importance": 4,
+      "exposure_profile": "monitoring_visibility",
+      "exposure_likelihood_base": 2,
+      "recommendations": {
+        "PASS": "No remediation needed.",
+        "FAIL": "Start Windows Event Log service and ensure Security logs are being recorded.",
+        "UNKNOWN": "Investigate why Windows Event Log service or Security log evidence could not be collected."
+      },
+      "iso_mapping": [
+        "A.8.15 Logging",
+        "A.8.16 Monitoring Activities"
+      ],
+      "pdpa_mapping": [
+        "Security principle: maintain audit trails and monitoring visibility."
+      ]
     },
     {
-      "control_id": "AC-WINSRV-01",
+      "control_id": "AC-WINSVR-01",
       "title": "Password complexity is enabled",
       "domain": "Access Control",
       "platform": "windows_server",
-      "evidence_path": "results.access_control.password_complexity_policy.value.password_complexity",
-      "rule": { "type": "must_equal", "value": "PasswordComplexity = 1" },
+      "evaluator": "evaluate_ac_windows_01",
       "severity": "high",
-      "recommendation": "Enable password complexity requirements in Local Security Policy or domain policy.",
-      "iso_mapping": "ISO27001 Annex A (Access Control)",
-      "pdpa_mapping": "Security principle: strengthen authentication."
+      "business_criticality": 5,
+      "security_impact": 4,
+      "asset_coverage": 5,
+      "compliance_importance": 4,
+      "exposure_profile": "remote_auth",
+      "exposure_likelihood_base": 3,
+      "recommendations": {
+        "PASS": "No remediation needed.",
+        "FAIL": "Enable password complexity through Local Security Policy or Group Policy.",
+        "UNKNOWN": "Investigate why password complexity policy could not be collected."
+      },
+      "iso_mapping": [
+        "A.5.17 Authentication Information",
+        "A.8.5 Secure authentication"
+      ],
+      "pdpa_mapping": [
+        "Security principle: enforce strong authentication to reduce account compromise."
+      ]
     },
-    {
-      "control_id": "UPD-WINSRV-01",
-      "title": "Windows Update service is running",
-      "domain": "Asset & Configuration Management",
-      "platform": "windows_server",
-      "evidence_path": "results.updates.windows_update_service.value.Status",
-      "rule": { "type": "must_equal", "value": "Running" },
-      "severity": "medium",
-      "recommendation": "Enable Windows Update service and apply the latest patches.",
-      "iso_mapping": "ISO27001 Annex A (Vulnerability/Patch Management)",
-      "pdpa_mapping": "Security principle: reduce exploitation risk."
-    },
-
     {
       "control_id": "FW-W10-01",
-      "title": "Windows Firewall enabled for all profiles",
+      "title": "Windows Firewall is enabled",
       "domain": "Asset & Configuration Management",
       "platform": "windows10",
-      "evidence_path": "results.firewall.firewall_profiles.value",
-      "rule": { "type": "all_objects_field_equals", "field": "Enabled", "value": 1 },
+      "evaluator": "evaluate_fw_windows_01",
       "severity": "high",
-      "recommendation": "Enable Windows Firewall for Domain/Private/Public profiles and allow only required inbound ports.",
-      "iso_mapping": "ISO27001 Annex A (Network Security)",
-      "pdpa_mapping": "Security principle: reduce attack surface."
+      "business_criticality": 3,
+      "security_impact": 4,
+      "asset_coverage": 3,
+      "compliance_importance": 4,
+      "exposure_profile": "network_defense",
+      "exposure_likelihood_base": 3,
+      "recommendations": {
+        "PASS": "No remediation needed.",
+        "PARTIAL": "Windows Firewall is enabled but one or more profiles have permissive inbound rules. Set default inbound action to Block.",
+        "FAIL": "Enable Windows Firewall for all required profiles.",
+        "UNKNOWN": "Investigate why Windows Firewall profile information could not be collected."
+      },
+      "iso_mapping": [
+        "A.8.20 Network security",
+        "A.8.21 Security of network services",
+        "A.8.22 Segregation of networks"
+      ],
+      "pdpa_mapping": [
+        "Security principle: reduce unauthorized network access."
+      ]
     },
     {
       "control_id": "LOG-W10-01",
-      "title": "Windows Event Log service is running",
+      "title": "Windows Event Log Service is running",
       "domain": "Logging & Monitoring",
       "platform": "windows10",
-      "evidence_path": "results.logging.eventlog_service.value.Status",
-      "rule": { "type": "must_equal", "value": "Running" },
+      "evaluator": "evaluate_log_windows_01",
       "severity": "high",
-      "recommendation": "Start Windows Event Log service and ensure Security events are recorded.",
-      "iso_mapping": "ISO27001 Annex A (Logging)",
-      "pdpa_mapping": "Security principle: maintain audit trails."
+      "business_criticality": 3,
+      "security_impact": 4,
+      "asset_coverage": 3,
+      "compliance_importance": 4,
+      "exposure_profile": "monitoring_visibility",
+      "exposure_likelihood_base": 2,
+      "recommendations": {
+        "PASS": "No remediation needed.",
+        "FAIL": "Start Windows Event Log service and ensure Security logs are being recorded.",
+        "UNKNOWN": "Investigate why Windows Event Log service or Security log evidence could not be collected."
+      },
+      "iso_mapping": [
+        "A.8.15 Logging",
+        "A.8.16 Monitoring Activities"
+      ],
+      "pdpa_mapping": [
+        "Security principle: maintain audit trails and monitoring visibility."
+      ]
     },
     {
       "control_id": "AC-W10-01",
       "title": "Password complexity is enabled",
       "domain": "Access Control",
       "platform": "windows10",
-      "evidence_path": "results.access_control.password_complexity_policy.value.password_complexity",
-      "rule": { "type": "must_equal", "value": "PasswordComplexity = 1" },
+      "evaluator": "evaluate_ac_windows_01",
       "severity": "high",
-      "recommendation": "Enable password complexity requirements in Local Security Policy.",
-      "iso_mapping": "ISO27001 Annex A (Access Control)",
-      "pdpa_mapping": "Security principle: strengthen authentication."
+      "business_criticality": 3,
+      "security_impact": 4,
+      "asset_coverage": 3,
+      "compliance_importance": 4,
+      "exposure_profile": "remote_auth",
+      "exposure_likelihood_base": 3,
+      "recommendations": {
+        "PASS": "No remediation needed.",
+        "FAIL": "Enable password complexity through Local Security Policy.",
+        "UNKNOWN": "Investigate why password complexity policy could not be collected."
+      },
+      "iso_mapping": [
+        "A.5.17 Authentication Information",
+        "A.8.5 Secure authentication"
+      ],
+      "pdpa_mapping": [
+        "Security principle: enforce strong authentication to reduce account compromise."
+      ]
+    },
+    {
+      "control_id": "UPD-WINSVR-01",
+      "title": "Windows Update Service is running",
+      "domain": "Asset & Configuration Management",
+      "platform": "windows_server",
+      "evaluator": "evaluate_upd_windows_01",
+      "severity": "high",
+      "business_criticality": 5,
+      "security_impact": 5,
+      "asset_coverage": 5,
+      "compliance_importance": 4,
+      "exposure_profile": "vulnerability_management",
+      "exposure_likelihood_base": 3,
+      "recommendations": {
+        "PASS": "No remediation needed.",
+        "PARTIAL": "Windows Update service is running but recent patch evidence is weak or outdated. Verify update configuration or WSUS policy.",
+        "FAIL": "Start Windows Update service and configure automatic or centrally managed updates.",
+        "UNKNOWN": "Investigate why Windows Update or hotfix evidence could not be collected."
+      },
+      "iso_mapping": [
+        "A.8.8 Management of technical vulnerabilities",
+        "A.8.9 Configuration management"
+      ],
+      "pdpa_mapping": [
+        "Security principle: reduce exposure to known vulnerabilities through timely patching."
+      ]
     },
     {
       "control_id": "UPD-W10-01",
-      "title": "Windows Update service is running",
+      "title": "Windows Update Service is running",
       "domain": "Asset & Configuration Management",
       "platform": "windows10",
-      "evidence_path": "results.updates.windows_update_service.value.Status",
-      "rule": { "type": "must_equal", "value": "Running" },
-      "severity": "medium",
-      "recommendation": "Enable Windows Update service and apply the latest patches.",
-      "iso_mapping": "ISO27001 Annex A (Vulnerability/Patch Management)",
-      "pdpa_mapping": "Security principle: reduce exploitation risk."
+      "evaluator": "evaluate_upd_windows_01",
+      "severity": "high",
+      "business_criticality": 3,
+      "security_impact": 4,
+      "asset_coverage": 3,
+      "compliance_importance": 4,
+      "exposure_profile": "vulnerability_management",
+      "exposure_likelihood_base": 3,
+      "recommendations": {
+        "PASS": "No remediation needed.",
+        "PARTIAL": "Windows Update service is running but recent patch evidence is weak or outdated. Verify update configuration.",
+        "FAIL": "Start Windows Update service and ensure automatic updates are enabled.",
+        "UNKNOWN": "Investigate why Windows Update or hotfix evidence could not be collected."
+      },
+      "iso_mapping": [
+        "A.8.8 Management of technical vulnerabilities",
+        "A.8.9 Configuration management"
+      ],
+      "pdpa_mapping": [
+        "Security principle: reduce exposure to known vulnerabilities through timely patching."
+      ]
     },
     {
       "control_id": "EP-W10-01",
       "title": "Real-time antivirus protection is enabled",
       "domain": "Asset & Configuration Management",
       "platform": "windows10",
-      "evidence_path": "results.antivirus.defender_status.value.RealTimeProtectionEnabled",
-      "rule": { "type": "must_be_true" },
+      "evaluator": "evaluate_ep_w10_01",
       "severity": "high",
-      "recommendation": "Enable Microsoft Defender real-time protection and ensure signatures are up to date.",
-      "iso_mapping": "ISO27001 Annex A (Protection against malware)",
-      "pdpa_mapping": "Security principle: prevent malware incidents affecting personal data."
+      "business_criticality": 3,
+      "security_impact": 5,
+      "asset_coverage": 3,
+      "compliance_importance": 4,
+      "exposure_profile": "endpoint_protection",
+      "exposure_likelihood_base": 3,
+      "recommendations": {
+        "PASS": "No remediation needed.",
+        "PARTIAL": "Update antivirus signatures and confirm Defender is receiving current definitions.",
+        "FAIL": "Enable Microsoft Defender real-time protection immediately.",
+        "UNKNOWN": "Investigate why Microsoft Defender status could not be collected."
+      },
+      "iso_mapping": [
+        "A.8.7 Protection against malware"
+      ],
+      "pdpa_mapping": [
+        "Security principle: prevent malware incidents affecting personal data."
+      ]
+    },
+    {
+      "control_id": "BKP-LNX-01",
+      "title": "Backup tool installed and scheduled",
+      "domain": "Backup & Recovery",
+      "platform": "linux",
+      "evaluator": "evaluate_bkp_lnx_01",
+      "severity": "high",
+      "business_criticality": 5,
+      "security_impact": 4,
+      "asset_coverage": 4,
+      "compliance_importance": 4,
+      "exposure_profile": "data_loss",
+      "exposure_likelihood_base": 3,
+      "recommendations": {
+        "PASS": "No remediation needed. Continue verifying backup integrity regularly.",
+        "PARTIAL": "A backup tool is installed but no scheduled backup job was detected. Configure a cron job or systemd timer to automate backups.",
+        "FAIL": "No backup tool or scheduled backup job detected. Install rsync or timeshift and configure automated backups immediately.",
+        "UNKNOWN": "Investigate why backup tool or schedule evidence could not be collected."
+      },
+      "iso_mapping": [
+        "A.8.13 Information backup",
+        "A.5.29 Information security during disruption"
+      ],
+      "pdpa_mapping": [
+        "Security principle: ensure personal data can be recovered after loss or destruction."
+      ]
+    },
+    {
+      "control_id": "BKP-WINSVR-01",
+      "title": "Volume Shadow Copy Service (VSS) enabled and shadow copies present",
+      "domain": "Backup & Recovery",
+      "platform": "windows_server",
+      "evaluator": "evaluate_bkp_windows_01",
+      "severity": "high",
+      "business_criticality": 5,
+      "security_impact": 4,
+      "asset_coverage": 5,
+      "compliance_importance": 4,
+      "exposure_profile": "data_loss",
+      "exposure_likelihood_base": 3,
+      "recommendations": {
+        "PASS": "No remediation needed. Verify backup restore procedures periodically.",
+        "PARTIAL": "VSS service is running but no shadow copies were found. Configure a backup schedule using Windows Server Backup or wbadmin.",
+        "FAIL": "VSS service is not running and no shadow copies exist. Enable VSS and configure backup jobs immediately.",
+        "UNKNOWN": "Investigate why VSS or shadow copy evidence could not be collected."
+      },
+      "iso_mapping": [
+        "A.8.13 Information backup",
+        "A.5.29 Information security during disruption"
+      ],
+      "pdpa_mapping": [
+        "Security principle: ensure personal data can be recovered after loss or destruction."
+      ]
+    },
+    {
+      "control_id": "BKP-W10-01",
+      "title": "Volume Shadow Copy Service (VSS) enabled",
+      "domain": "Backup & Recovery",
+      "platform": "windows10",
+      "evaluator": "evaluate_bkp_windows_01",
+      "severity": "medium",
+      "business_criticality": 3,
+      "security_impact": 3,
+      "asset_coverage": 2,
+      "compliance_importance": 3,
+      "exposure_profile": "data_loss",
+      "exposure_likelihood_base": 2,
+      "recommendations": {
+        "PASS": "No remediation needed.",
+        "PARTIAL": "VSS is running but no shadow copies or File History found. Enable File History or configure Windows Backup.",
+        "FAIL": "VSS service is not running. Enable Volume Shadow Copy Service and configure backup or File History.",
+        "UNKNOWN": "Investigate why VSS evidence could not be collected."
+      },
+      "iso_mapping": [
+        "A.8.13 Information backup"
+      ],
+      "pdpa_mapping": [
+        "Security principle: ensure personal data can be recovered after accidental deletion."
+      ]
+    },
+    {
+      "control_id": "AC-LNX-03",
+      "title": "Inactive local accounts identified",
+      "domain": "Access Control",
+      "platform": "linux",
+      "evaluator": "evaluate_ac_lnx_03",
+      "severity": "medium",
+      "business_criticality": 3,
+      "security_impact": 3,
+      "asset_coverage": 3,
+      "compliance_importance": 3,
+      "exposure_profile": "stale_accounts",
+      "exposure_likelihood_base": 2,
+      "recommendations": {
+        "PASS": "No accounts with permanent 'never logged in' status found. Continue periodic review.",
+        "PARTIAL": "Some accounts have never logged in but have login shells. Review and disable accounts no longer needed.",
+        "FAIL": "Multiple accounts with active login shells have never logged in. Disable or remove unused accounts.",
+        "UNKNOWN": "Investigate why lastlog or /etc/passwd evidence could not be collected."
+      },
+      "iso_mapping": [
+        "A.5.15 Access control",
+        "A.5.16 Identity management",
+        "A.8.2 Privileged access rights"
+      ],
+      "pdpa_mapping": [
+        "Security principle: limit access to personal data to only accounts that require it."
+      ]
+    },
+    {
+      "control_id": "AC-LNX-04",
+      "title": "Account lockout policy configured (PAM)",
+      "domain": "Access Control",
+      "platform": "linux",
+      "evaluator": "evaluate_ac_lnx_04",
+      "severity": "medium",
+      "business_criticality": 3,
+      "security_impact": 4,
+      "asset_coverage": 4,
+      "compliance_importance": 4,
+      "exposure_profile": "brute_force",
+      "exposure_likelihood_base": 3,
+      "recommendations": {
+        "PASS": "Account lockout policy is configured. Verify deny threshold and unlock_time are appropriate.",
+        "FAIL": "No account lockout policy found in PAM configuration. Install and configure pam_faillock in /etc/pam.d/common-auth.",
+        "UNKNOWN": "Investigate why PAM configuration evidence could not be collected."
+      },
+      "iso_mapping": [
+        "A.8.5 Secure authentication",
+        "A.5.15 Access control"
+      ],
+      "pdpa_mapping": [
+        "Security principle: prevent brute-force attacks on accounts holding personal data."
+      ]
+    },
+    {
+      "control_id": "AC-WINSVR-02",
+      "title": "Built-in Guest account is disabled",
+      "domain": "Access Control",
+      "platform": "windows_server",
+      "evaluator": "evaluate_ac_guest_windows",
+      "severity": "high",
+      "business_criticality": 4,
+      "security_impact": 4,
+      "asset_coverage": 4,
+      "compliance_importance": 4,
+      "exposure_profile": "remote_auth",
+      "exposure_likelihood_base": 2,
+      "recommendations": {
+        "PASS": "Guest account is disabled. No action required.",
+        "FAIL": "Guest account is enabled. Disable it immediately via Local Users and Groups or: net user guest /active:no",
+        "UNKNOWN": "Investigate why Guest account status could not be collected."
+      },
+      "iso_mapping": [
+        "A.5.15 Access control",
+        "A.8.2 Privileged access rights"
+      ],
+      "pdpa_mapping": [
+        "Security principle: prevent anonymous access to systems holding personal data."
+      ]
+    },
+    {
+      "control_id": "AC-W10-02",
+      "title": "Built-in Guest account is disabled",
+      "domain": "Access Control",
+      "platform": "windows10",
+      "evaluator": "evaluate_ac_guest_windows",
+      "severity": "high",
+      "business_criticality": 3,
+      "security_impact": 3,
+      "asset_coverage": 3,
+      "compliance_importance": 3,
+      "exposure_profile": "remote_auth",
+      "exposure_likelihood_base": 2,
+      "recommendations": {
+        "PASS": "Guest account is disabled. No action required.",
+        "FAIL": "Guest account is enabled. Disable it immediately: net user guest /active:no",
+        "UNKNOWN": "Investigate why Guest account status could not be collected."
+      },
+      "iso_mapping": [
+        "A.5.15 Access control"
+      ],
+      "pdpa_mapping": [
+        "Security principle: prevent anonymous access to personal data on workstations."
+      ]
+    },
+    {
+      "control_id": "CRYPTO-WINSVR-01",
+      "title": "TLS 1.0 and 1.1 disabled, TLS 1.2/1.3 enforced",
+      "domain": "Cryptography",
+      "platform": "windows_server",
+      "evaluator": "evaluate_crypto_winsvr_01",
+      "severity": "high",
+      "business_criticality": 4,
+      "security_impact": 5,
+      "asset_coverage": 4,
+      "compliance_importance": 5,
+      "exposure_profile": "network_crypto",
+      "exposure_likelihood_base": 3,
+      "recommendations": {
+        "PASS": "TLS 1.0 and 1.1 are disabled. TLS 1.2 or higher is enforced.",
+        "PARTIAL": "TLS 1.2 is enabled but TLS 1.0 or 1.1 are not explicitly disabled. Set Enabled=0 under HKLM\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.0\\Server and TLS 1.1\\Server.",
+        "FAIL": "Weak TLS versions (1.0 or 1.1) appear enabled. Disable them in the SCHANNEL registry and restart the server.",
+        "UNKNOWN": "Investigate why TLS registry evidence could not be collected."
+      },
+      "iso_mapping": [
+        "A.8.24 Use of cryptography",
+        "A.8.20 Network security"
+      ],
+      "pdpa_mapping": [
+        "Security principle: protect personal data in transit using strong cryptographic protocols."
+      ]
+    },
+    {
+      "control_id": "CRYPTO-W10-01",
+      "title": "BitLocker drive encryption enabled on OS drive",
+      "domain": "Cryptography",
+      "platform": "windows10",
+      "evaluator": "evaluate_crypto_w10_01",
+      "severity": "high",
+      "business_criticality": 4,
+      "security_impact": 5,
+      "asset_coverage": 3,
+      "compliance_importance": 5,
+      "exposure_profile": "physical_access",
+      "exposure_likelihood_base": 2,
+      "recommendations": {
+        "PASS": "BitLocker is active on the OS drive. Ensure recovery key is stored securely.",
+        "PARTIAL": "BitLocker is configured but protection is suspended or encryption is not complete. Resume protection via manage-bde -protectors -enable C:",
+        "FAIL": "BitLocker is not enabled on the OS drive. Enable it via Settings > Update & Security > Device Encryption, or manage-bde -on C: -recoverypassword.",
+        "UNKNOWN": "Investigate why BitLocker status evidence could not be collected. Run manage-bde -status C: manually."
+      },
+      "iso_mapping": [
+        "A.8.24 Use of cryptography",
+        "A.7.10 Storage media"
+      ],
+      "pdpa_mapping": [
+        "Security principle: protect personal data stored on endpoints from physical theft."
+      ]
+    },
+    {
+      "control_id": "LOG-LNX-03",
+      "title": "Log rotation is configured",
+      "domain": "Logging & Monitoring",
+      "platform": "linux",
+      "evaluator": "evaluate_log_lnx_03",
+      "severity": "medium",
+      "business_criticality": 3,
+      "security_impact": 3,
+      "asset_coverage": 4,
+      "compliance_importance": 4,
+      "exposure_profile": "log_management",
+      "exposure_likelihood_base": 2,
+      "recommendations": {
+        "PASS": "logrotate is installed, configured, and triggered. No action required.",
+        "PARTIAL": "logrotate is installed and has config files, but no trigger (systemd timer or cron job) was found. Ensure logrotate runs automatically.",
+        "FAIL": "logrotate is not installed or has no configuration. Install logrotate and configure rotation intervals to prevent log overflow and data loss.",
+        "UNKNOWN": "Investigate why logrotate evidence could not be collected."
+      },
+      "iso_mapping": [
+        "A.8.15 Logging",
+        "A.8.16 Monitoring Activities"
+      ],
+      "pdpa_mapping": [
+        "Security principle: maintain audit logs for the appropriate retention period without uncontrolled disk growth."
+      ]
     }
   ]
 }

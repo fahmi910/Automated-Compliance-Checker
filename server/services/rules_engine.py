@@ -1106,6 +1106,139 @@ def evaluate_log_lnx_01(
     result["recommendation"] = get_recommendation_for_status(control, result["status"])
     return finalize_result(result)
 
+# -----------------------------
+# Custom evaluator: LOG-LNX-02
+# -----------------------------
+def evaluate_log_lnx_02(
+    audit: Dict[str, Any],
+    control: Dict[str, Any],
+    platform: str,
+    applicability_context: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+
+    result = build_base_result(control, platform)
+
+    # -------------------------
+    # Primary evidence
+    # -------------------------
+    path = "results.logging.auth_log_exists"
+    exists, obj = get_check_object(audit, path)
+
+    auth_exists = False
+    if exists:
+        auth_exists = bool(obj.get("value") is True)
+
+    result["primary_evidence"] = build_evidence_block(
+        collected=exists,
+        path=path,
+        value=obj.get("value") if exists else None,
+        source=obj.get("source") if exists else None,
+        raw_snippet=obj.get("evidence") if exists else None,
+        note=None,
+    )
+
+    result["decision_source"] = "primary"
+
+    # -------------------------
+    # Supporting validation
+    # -------------------------
+    exists_failed, failed_obj = get_check_object(audit, "results.logging.failed_ssh_logins_snippet")
+    exists_sudo, sudo_obj = get_check_object(audit, "results.logging.sudo_usage_snippet")
+
+    failed_val = normalize_str(failed_obj.get("value")) if exists_failed else None
+    sudo_val = normalize_str(sudo_obj.get("value")) if exists_sudo else None
+
+    meaningful_logs = False
+
+    if failed_val and failed_val not in ("none", "n/a", ""):
+        meaningful_logs = True
+
+    if sudo_val and sudo_val not in ("none", "n/a", ""):
+        meaningful_logs = True
+
+    result["supporting_validation"]["auth_log_activity"] = build_validation_block(
+        collected=(exists_failed or exists_sudo),
+        value={
+            "failed_ssh": failed_obj.get("value") if exists_failed else None,
+            "sudo_usage": sudo_obj.get("value") if exists_sudo else None,
+        },
+        status="HIT" if meaningful_logs else "MISS",
+        source="auth.log snippets",
+        note="Used to determine if logs contain meaningful activity.",
+    )
+
+    # -------------------------
+    # Decision logic
+    # -------------------------
+    if not exists:
+        result["status"] = "UNKNOWN"
+        result["reason"] = "Unable to determine authentication log existence."
+
+    elif not auth_exists:
+        result["status"] = "FAIL"
+        result["reason"] = "Authentication log file does not exist."
+
+    elif not meaningful_logs:
+        result["status"] = "PARTIAL"
+        result["reason"] = "Authentication log exists but no meaningful activity detected."
+
+    else:
+        result["status"] = "PASS"
+        result["reason"] = "Authentication log exists and contains activity."
+
+    # -------------------------
+    # Exposure
+    # -------------------------
+    base_el = int(control.get("exposure_likelihood_base", 2))
+    final_el = base_el
+
+    rule_hits = []
+    rule_misses = []
+
+    # remote access
+    exists_ports, ports_obj = get_check_object(audit, "results.ports.listening_ports")
+    remote_access = False
+
+    if exists_ports:
+        raw_ports = str(ports_obj.get("evidence", "") or ports_obj.get("value", ""))
+        remote_access = contains_port_22_listening(raw_ports)
+
+    if remote_access:
+        final_el += 1
+        rule_hits.append("remote_access_enabled")
+    else:
+        rule_misses.append("remote_access_enabled")
+
+    # suspicious activity
+    if meaningful_logs:
+        final_el += 1
+        rule_hits.append("activity_detected")
+    else:
+        rule_misses.append("activity_detected")
+
+    final_el = max(1, min(5, final_el))
+
+    result["risk"]["exposure"] = {
+        "profile": control.get("exposure_profile", "monitoring_visibility"),
+        "base": base_el,
+        "rule_hits": rule_hits,
+        "rule_misses": rule_misses,
+        "final_exposure_likelihood": final_el,
+    }
+
+    # -------------------------
+    # Mitigation
+    # -------------------------
+    result["risk"]["mitigation"] = {
+        "hits": [],
+        "percent": 0.0,
+        "cap": 0.30,
+    }
+
+    result["recommendation"] = get_recommendation_for_status(control, result["status"])
+
+    return finalize_result(result)
+
 # -------------------------------
 # Custom evaluator: CRYPTO-LNX-01
 # -------------------------------
@@ -1215,29 +1348,563 @@ def evaluate_crypto_lnx_01(
 
     return finalize_result(result)
 
-# -----------------------------
-# Evaluator registry + dispatch
-# -----------------------------
-CUSTOM_EVALUATORS = {
-    "evaluate_ac_lnx_01": evaluate_ac_lnx_01,
-    "evaluate_ac_lnx_02": evaluate_ac_lnx_02,
-    "evaluate_fw_lnx_01": evaluate_fw_lnx_01,
-    "evaluate_log_lnx_01": evaluate_log_lnx_01,
-    "evaluate_crypto_lnx_01": evaluate_crypto_lnx_01,
-}
-
-
-def evaluate_control(
+# -------------------------------
+# Custom evaluator: EP-W10-01
+# -------------------------------
+def evaluate_ep_w10_01(
     audit: Dict[str, Any],
     control: Dict[str, Any],
     platform: str,
     applicability_context: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    evaluator_name = control.get("evaluator")
-    if evaluator_name and evaluator_name in CUSTOM_EVALUATORS:
-        return CUSTOM_EVALUATORS[evaluator_name](audit, control, platform, applicability_context)
+    result = build_base_result(control, platform)
 
-    return evaluate_control_generic(audit, control, platform, applicability_context)
+    path = "results.antivirus.defender_status"
+    exists, obj = get_check_object(audit, path)
+
+    defender = obj.get("value") if exists else None
+
+    result["primary_evidence"] = build_evidence_block(
+        collected=exists,
+        path=path,
+        value=defender,
+        source=obj.get("source") if exists else None,
+        raw_snippet=obj.get("evidence") if exists else None,
+        note=None,
+    )
+    result["decision_source"] = "primary"
+
+    if not exists or not isinstance(defender, dict):
+        result["status"] = "UNKNOWN"
+        result["reason"] = "Unable to retrieve Microsoft Defender status."
+    else:
+        realtime_enabled = defender.get("RealTimeProtectionEnabled")
+        signature_age = defender.get("AntivirusSignatureAge")
+
+        signatures_outdated = False
+        try:
+            signatures_outdated = int(signature_age) > 7
+        except Exception:
+            signatures_outdated = False
+
+        result["supporting_validation"]["signature_age"] = build_validation_block(
+            collected=signature_age is not None,
+            value=signature_age,
+            status="HIT" if not signatures_outdated else "MISS",
+            source=obj.get("source"),
+            note="Used to determine whether antivirus signatures are current.",
+        )
+
+        if realtime_enabled is True and not signatures_outdated:
+            result["status"] = "PASS"
+            result["reason"] = "Microsoft Defender real-time protection is enabled and signatures are current."
+        elif realtime_enabled is True and signatures_outdated:
+            result["status"] = "PARTIAL"
+            result["reason"] = "Real-time protection is enabled but antivirus signatures are outdated."
+        elif realtime_enabled is False:
+            result["status"] = "FAIL"
+            result["reason"] = "Microsoft Defender real-time protection is disabled."
+        else:
+            result["status"] = "UNKNOWN"
+            result["reason"] = f"Unexpected Defender real-time protection value: {realtime_enabled!r}"
+
+    # Exposure
+    base_el = int(control.get("exposure_likelihood_base", 3))
+    final_el = base_el
+    rule_hits: List[str] = []
+    rule_misses: List[str] = []
+
+    if isinstance(defender, dict):
+        realtime_enabled = defender.get("RealTimeProtectionEnabled")
+        signature_age = defender.get("AntivirusSignatureAge")
+
+        if realtime_enabled is False:
+            final_el += 2
+            rule_hits.append("realtime_disabled")
+        else:
+            rule_misses.append("realtime_disabled")
+
+        try:
+            if int(signature_age) > 7:
+                final_el += 1
+                rule_hits.append("signatures_outdated")
+            else:
+                rule_misses.append("signatures_outdated")
+        except Exception:
+            rule_misses.append("signatures_outdated")
+    else:
+        rule_misses.extend(["realtime_disabled", "signatures_outdated"])
+
+    final_el = max(1, min(5, final_el))
+
+    result["risk"]["exposure"] = {
+        "profile": control.get("exposure_profile", "endpoint_protection"),
+        "base": base_el,
+        "rule_hits": rule_hits,
+        "rule_misses": rule_misses,
+        "final_exposure_likelihood": final_el,
+    }
+
+    # Mitigation placeholder
+    result["risk"]["mitigation"] = {
+        "hits": [],
+        "percent": 0.0,
+        "cap": 0.30,
+    }
+
+    result["recommendation"] = get_recommendation_for_status(control, result["status"])
+    return finalize_result(result)
+
+# -------------------------------
+# Custom evaluator: UPD-Windows-01
+# -------------------------------
+def evaluate_upd_windows_01(
+    audit: Dict[str, Any],
+    control: Dict[str, Any],
+    platform: str,
+    applicability_context: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    result = build_base_result(control, platform)
+
+    service_path = "results.updates.windows_update_service"
+    hotfix_path = "results.updates.latest_hotfix"
+
+    exists_service, service_obj = get_check_object(audit, service_path)
+    exists_hotfix, hotfix_obj = get_check_object(audit, hotfix_path)
+
+    service_value = service_obj.get("value") if exists_service else None
+    hotfix_value = hotfix_obj.get("value") if exists_hotfix else None
+
+    result["primary_evidence"] = build_evidence_block(
+        collected=exists_service,
+        path=service_path,
+        value=service_value,
+        source=service_obj.get("source") if exists_service else None,
+        raw_snippet=service_obj.get("evidence") if exists_service else None,
+        note=None,
+    )
+
+    result["supporting_validation"]["latest_hotfix"] = build_validation_block(
+        collected=exists_hotfix,
+        value=hotfix_value,
+        status="HIT" if isinstance(hotfix_value, dict) else "MISS",
+        source=hotfix_obj.get("source") if exists_hotfix else None,
+        note="Used to verify whether update activity exists.",
+    )
+
+    result["decision_source"] = "primary"
+
+    if not exists_service or not isinstance(service_value, dict):
+        result["status"] = "UNKNOWN"
+        result["reason"] = "Unable to retrieve Windows Update service status."
+    else:
+        status = normalize_str(service_value.get("Status"))
+        start_type = normalize_str(service_value.get("StartType"))
+
+        hotfix_present = isinstance(hotfix_value, dict)
+
+        if status == "running" and hotfix_present:
+            result["status"] = "PASS"
+            result["reason"] = "Windows Update service is running and update history is present."
+        elif status == "running" and not hotfix_present:
+            result["status"] = "PARTIAL"
+            result["reason"] = "Windows Update service is running but recent hotfix evidence is unavailable."
+        elif status in ("stopped", "stop pending", "paused"):
+            result["status"] = "FAIL"
+            result["reason"] = f"Windows Update service is not running (status={service_value.get('Status')})."
+        else:
+            result["status"] = "UNKNOWN"
+            result["reason"] = f"Unexpected Windows Update service status: {service_value.get('Status')!r}."
+
+        result["supporting_validation"]["startup_type"] = build_validation_block(
+            collected=True,
+            value=service_value.get("StartType"),
+            status="HIT" if start_type in ("automatic", "manual") else "MISS",
+            source=service_obj.get("source"),
+            note="Used as supporting context for update service configuration.",
+        )
+
+    # Exposure
+    base_el = int(control.get("exposure_likelihood_base", 3))
+    final_el = base_el
+    rule_hits: List[str] = []
+    rule_misses: List[str] = []
+
+    if isinstance(service_value, dict) and normalize_str(service_value.get("Status")) != "running":
+        final_el += 1
+        rule_hits.append("wuauserv_stopped")
+    else:
+        rule_misses.append("wuauserv_stopped")
+
+    if not isinstance(hotfix_value, dict):
+        final_el += 1
+        rule_hits.append("patch_evidence_missing")
+    else:
+        rule_misses.append("patch_evidence_missing")
+
+    final_el = max(1, min(5, final_el))
+
+    result["risk"]["exposure"] = {
+        "profile": control.get("exposure_profile", "vulnerability_management"),
+        "base": base_el,
+        "rule_hits": rule_hits,
+        "rule_misses": rule_misses,
+        "final_exposure_likelihood": final_el,
+    }
+
+    result["risk"]["mitigation"] = {
+        "hits": [],
+        "percent": 0.0,
+        "cap": 0.30,
+    }
+
+    result["recommendation"] = get_recommendation_for_status(control, result["status"])
+    return finalize_result(result)
+
+# -------------------------------
+# Custom evaluator: FW-Windows-01
+# -------------------------------
+def evaluate_fw_windows_01(
+    audit: Dict[str, Any],
+    control: Dict[str, Any],
+    platform: str,
+    applicability_context: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    result = build_base_result(control, platform)
+
+    path = "results.firewall.windows_firewall_profiles"
+    exists, obj = get_check_object(audit, path)
+    profiles = obj.get("value") if exists else None
+
+    result["primary_evidence"] = build_evidence_block(
+        collected=exists,
+        path=path,
+        value=profiles,
+        source=obj.get("source") if exists else None,
+        raw_snippet=obj.get("evidence") if exists else None,
+        note=None,
+    )
+    result["decision_source"] = "primary"
+
+    if isinstance(profiles, dict):
+        profiles = [profiles]
+
+    any_disabled = False
+    any_inbound_allow = False
+    all_enabled = False
+    all_inbound_block = False
+
+    if not exists or not isinstance(profiles, list) or len(profiles) == 0:
+        result["status"] = "UNKNOWN"
+        result["reason"] = "Unable to retrieve Windows Firewall profile information."
+    else:
+        valid_profiles = [p for p in profiles if isinstance(p, dict)]
+
+        if not valid_profiles:
+            result["status"] = "UNKNOWN"
+            result["reason"] = "Windows Firewall profile evidence has an unexpected format."
+        else:
+            any_disabled = any(
+                p.get("Enabled") in (False, 0)
+                for p in valid_profiles
+            )
+
+            any_inbound_allow = any(
+                normalize_str(p.get("DefaultInboundAction")) == "allow"
+                or p.get("DefaultInboundAction") == 1
+                for p in valid_profiles
+            )
+
+            all_enabled = all(
+                p.get("Enabled") in (True, 1)
+                for p in valid_profiles
+            )
+
+            all_inbound_block = all(
+                normalize_str(p.get("DefaultInboundAction")) == "block"
+                or p.get("DefaultInboundAction") == 0
+                for p in valid_profiles
+            )
+
+            result["supporting_validation"]["firewall_profiles"] = build_validation_block(
+                collected=True,
+                value={
+                    "all_enabled": all_enabled,
+                    "all_inbound_block": all_inbound_block,
+                    "any_disabled": any_disabled,
+                    "any_inbound_allow": any_inbound_allow,
+                },
+                status="HIT" if all_enabled and all_inbound_block else "MISS",
+                source=obj.get("source"),
+                note="Used to validate firewall profile enablement and default inbound action.",
+            )
+
+            if any_disabled:
+                result["status"] = "FAIL"
+                result["reason"] = "One or more Windows Firewall profiles are disabled."
+            elif any_inbound_allow:
+                result["status"] = "PARTIAL"
+                result["reason"] = "Windows Firewall profiles are enabled, but one or more default inbound actions are permissive."
+            elif all_enabled and all_inbound_block:
+                result["status"] = "PASS"
+                result["reason"] = "Windows Firewall is enabled and default inbound action is restrictive."
+            else:
+                result["status"] = "UNKNOWN"
+                result["reason"] = "Windows Firewall profile state could not be interpreted."
+
+    base_el = int(control.get("exposure_likelihood_base", 3))
+    final_el = base_el
+    rule_hits: List[str] = []
+    rule_misses: List[str] = []
+
+    if any_disabled:
+        final_el += 2
+        rule_hits.append("any_profile_disabled")
+    else:
+        rule_misses.append("any_profile_disabled")
+
+    if any_inbound_allow:
+        final_el += 1
+        rule_hits.append("default_inbound_allow")
+    else:
+        rule_misses.append("default_inbound_allow")
+
+    final_el = max(1, min(5, final_el))
+
+    result["risk"]["exposure"] = {
+        "profile": control.get("exposure_profile", "network_defense"),
+        "base": base_el,
+        "rule_hits": rule_hits,
+        "rule_misses": rule_misses,
+        "final_exposure_likelihood": final_el,
+    }
+
+    mitigation_hits = []
+    mitigation_percent = 0.0
+
+    if all_enabled:
+        mitigation_hits.append("profiles_all_enabled")
+        mitigation_percent += 0.10
+
+    if all_inbound_block:
+        mitigation_hits.append("default_inbound_block")
+        mitigation_percent += 0.10
+
+    mitigation_percent = min(0.30, mitigation_percent)
+
+    result["risk"]["mitigation"] = {
+        "hits": mitigation_hits,
+        "percent": mitigation_percent,
+        "cap": 0.30,
+    }
+
+    result["recommendation"] = get_recommendation_for_status(control, result["status"])
+    return finalize_result(result)
+
+# -------------------------------
+# Custom evaluator: AC-Windows-01
+# -------------------------------
+def evaluate_ac_windows_01(
+    audit: Dict[str, Any],
+    control: Dict[str, Any],
+    platform: str,
+    applicability_context: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    result = build_base_result(control, platform)
+
+    path = "results.access_control.password_complexity_policy"
+    exists, obj = get_check_object(audit, path)
+    policy = obj.get("value") if exists else None
+
+    result["primary_evidence"] = build_evidence_block(
+        collected=exists,
+        path=path,
+        value=policy,
+        source=obj.get("source") if exists else None,
+        raw_snippet=obj.get("evidence") if exists else None,
+        note=None,
+    )
+    result["decision_source"] = "primary"
+
+    complexity_line = ""
+    if isinstance(policy, dict):
+        complexity_line = str(policy.get("password_complexity", "") or "")
+    elif isinstance(policy, str):
+        complexity_line = policy
+
+    complexity_enabled = "PasswordComplexity = 1" in complexity_line
+    complexity_disabled = "PasswordComplexity = 0" in complexity_line
+
+    if not exists or policy == "error":
+        result["status"] = "UNKNOWN"
+        result["reason"] = "Unable to retrieve password complexity policy."
+    elif complexity_enabled:
+        result["status"] = "PASS"
+        result["reason"] = "Password complexity policy is enabled."
+    elif complexity_disabled:
+        result["status"] = "FAIL"
+        result["reason"] = "Password complexity policy is disabled."
+    else:
+        result["status"] = "UNKNOWN"
+        result["reason"] = f"Password complexity policy could not be interpreted: {complexity_line!r}"
+
+    # Supporting validation: account policy text
+    exists_net, net_obj = get_check_object(audit, "results.access_control.net_accounts_policy")
+    if exists_net:
+        result["supporting_validation"]["net_accounts_policy"] = build_validation_block(
+            collected=True,
+            value=net_obj.get("value"),
+            status="HIT",
+            source=net_obj.get("source"),
+            note="Used as supporting account policy context.",
+        )
+
+    # Exposure
+    base_el = int(control.get("exposure_likelihood_base", 3))
+    final_el = base_el
+    rule_hits: List[str] = []
+    rule_misses: List[str] = []
+
+    # Weak account policy increases exposure
+    if result["status"] == "FAIL":
+        final_el += 1
+        rule_hits.append("password_complexity_disabled")
+    else:
+        rule_misses.append("password_complexity_disabled")
+
+    # Failed logons present
+    exists_failed, failed_obj = get_check_object(audit, "results.logging.failed_logins_4625")
+    failed_events = failed_obj.get("value") if exists_failed else None
+    failed_logons_present = isinstance(failed_events, list) and len(failed_events) > 0
+
+    if failed_logons_present:
+        final_el += 1
+        rule_hits.append("failed_logons_present")
+    else:
+        rule_misses.append("failed_logons_present")
+
+    final_el = max(1, min(5, final_el))
+
+    result["risk"]["exposure"] = {
+        "profile": control.get("exposure_profile", "remote_auth"),
+        "base": base_el,
+        "rule_hits": rule_hits,
+        "rule_misses": rule_misses,
+        "final_exposure_likelihood": final_el,
+    }
+
+    result["risk"]["mitigation"] = {
+        "hits": [],
+        "percent": 0.0,
+        "cap": 0.30,
+    }
+
+    result["recommendation"] = get_recommendation_for_status(control, result["status"])
+    return finalize_result(result)
+
+# -------------------------------
+# Custom evaluator: LOG-Windows-01
+# -------------------------------
+def evaluate_log_windows_01(
+    audit: Dict[str, Any],
+    control: Dict[str, Any],
+    platform: str,
+    applicability_context: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    result = build_base_result(control, platform)
+
+    service_path = "results.logging.eventlog_service"
+    event_path = "results.logging.last_security_event"
+
+    exists_service, service_obj = get_check_object(audit, service_path)
+    exists_event, event_obj = get_check_object(audit, event_path)
+
+    service = service_obj.get("value") if exists_service else None
+    last_event = event_obj.get("value") if exists_event else None
+
+    result["primary_evidence"] = build_evidence_block(
+        collected=exists_service,
+        path=service_path,
+        value=service,
+        source=service_obj.get("source") if exists_service else None,
+        raw_snippet=service_obj.get("evidence") if exists_service else None,
+        note=None,
+    )
+    result["decision_source"] = "primary"
+
+    security_log_available = isinstance(last_event, dict)
+
+    result["supporting_validation"]["last_security_event"] = build_validation_block(
+        collected=exists_event,
+        value=last_event,
+        status="HIT" if security_log_available else "MISS",
+        source=event_obj.get("source") if exists_event else None,
+        note="Used to confirm Security log events are readable.",
+    )
+
+    if not exists_service or not isinstance(service, dict):
+        result["status"] = "UNKNOWN"
+        result["reason"] = "Unable to retrieve Windows Event Log service status."
+    else:
+        status = normalize_str(service.get("Status"))
+
+        if status == "running" and security_log_available:
+            result["status"] = "PASS"
+            result["reason"] = "Windows Event Log service is running and Security logs are readable."
+        elif status == "running" and not security_log_available:
+            result["status"] = "FAIL"
+            result["reason"] = "Windows Event Log service is running but Security log events could not be read."
+        elif status in ("stopped", "stop pending", "paused"):
+            result["status"] = "FAIL"
+            result["reason"] = f"Windows Event Log service is not running (status={service.get('Status')})."
+        else:
+            result["status"] = "UNKNOWN"
+            result["reason"] = f"Unexpected Event Log service status: {service.get('Status')!r}."
+
+    # Exposure
+    base_el = int(control.get("exposure_likelihood_base", 2))
+    final_el = base_el
+    rule_hits: List[str] = []
+    rule_misses: List[str] = []
+
+    if isinstance(service, dict) and normalize_str(service.get("Status")) != "running":
+        final_el += 1
+        rule_hits.append("logging_service_down")
+    else:
+        rule_misses.append("logging_service_down")
+
+    exists_failed, failed_obj = get_check_object(audit, "results.logging.failed_logins_4625")
+    failed_events = failed_obj.get("value") if exists_failed else None
+    suspicious_events_present = isinstance(failed_events, list) and len(failed_events) > 0
+
+    if suspicious_events_present:
+        final_el += 1
+        rule_hits.append("suspicious_events_present")
+    else:
+        rule_misses.append("suspicious_events_present")
+
+    final_el = max(1, min(5, final_el))
+
+    result["risk"]["exposure"] = {
+        "profile": control.get("exposure_profile", "monitoring_visibility"),
+        "base": base_el,
+        "rule_hits": rule_hits,
+        "rule_misses": rule_misses,
+        "final_exposure_likelihood": final_el,
+    }
+
+    result["risk"]["mitigation"] = {
+        "hits": [],
+        "percent": 0.0,
+        "cap": 0.30,
+    }
+
+    result["recommendation"] = get_recommendation_for_status(control, result["status"])
+    return finalize_result(result)
+
+# -----------------------------
+# Evaluator registry + dispatch
+# -----------------------------
 
 
 # -----------------------------
@@ -1281,6 +1948,740 @@ def build_scoring_compat_results(results: List[Dict[str, Any]]) -> List[Dict[str
 def severity_rank(sev: str) -> int:
     sev = normalize_str(sev)
     return {"high": 3, "medium": 2, "low": 1}.get(sev, 0)
+
+
+# =============================================================================
+# NEW EVALUATORS — BKP-LNX-01, BKP-WINSVR-01/BKP-W10-01,
+#                  AC-LNX-03, AC-LNX-04, AC-WINSVR-02/AC-W10-02,
+#                  CRYPTO-WINSVR-01, CRYPTO-W10-01, LOG-LNX-03
+# =============================================================================
+
+
+# -----------------------------------------------------------------------------
+# BKP-LNX-01: Backup tool installed and scheduled (Linux)
+# PASS   = tool installed AND (cron jobs OR systemd timers found)
+# PARTIAL = tool installed but no schedule detected
+# FAIL   = no backup tool found
+# -----------------------------------------------------------------------------
+def evaluate_bkp_lnx_01(
+    audit: Dict[str, Any],
+    control: Dict[str, Any],
+    platform: str,
+    applicability_context: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    result = build_base_result(control, platform)
+
+    # Primary: backup tools installed
+    exists_tools, tools_obj = get_check_object(audit, "results.backup.backup_tools_installed")
+    # Secondary signals: cron jobs and systemd timers
+    exists_cron, cron_obj = get_check_object(audit, "results.backup.backup_cron_jobs")
+    exists_timers, timers_obj = get_check_object(audit, "results.backup.backup_systemd_timers")
+
+    if not exists_tools:
+        result["status"] = "UNKNOWN"
+        result["reason"] = "Backup tools evidence could not be collected."
+        result["decision_source"] = "primary"
+        result["primary_evidence"] = build_evidence_block(
+            collected=False, path="results.backup.backup_tools_installed",
+            value=None, source=None, raw_snippet=None,
+            note="evidence path not found in audit payload",
+        )
+        return finalize_result(result)
+
+    tools_value = tools_obj.get("value")
+    tools_found = isinstance(tools_value, list) and len(tools_value) > 0
+
+    cron_hits = cron_obj.get("value", []) if exists_cron else []
+    timer_hits = timers_obj.get("value", []) if exists_timers else []
+    schedule_found = (
+        (isinstance(cron_hits, list) and len(cron_hits) > 0) or
+        (isinstance(timer_hits, list) and len(timer_hits) > 0)
+    )
+
+    result["primary_evidence"] = build_evidence_block(
+        collected=True,
+        path="results.backup.backup_tools_installed",
+        value=tools_value,
+        source=tools_obj.get("source"),
+        raw_snippet=tools_obj.get("evidence"),
+    )
+    result["secondary_evidence"] = build_evidence_block(
+        collected=exists_cron or exists_timers,
+        path="results.backup.backup_cron_jobs / backup_systemd_timers",
+        value={"cron_hits": cron_hits, "timer_hits": timer_hits},
+        source="crontab + systemctl list-timers",
+        raw_snippet=cron_obj.get("evidence", "") if exists_cron else "",
+    )
+    result["decision_source"] = "primary"
+
+    if tools_found and schedule_found:
+        result["status"] = "PASS"
+        result["reason"] = (
+            f"Backup tool(s) installed: {tools_value}. "
+            f"Schedule detected: cron={len(cron_hits)} hit(s), timers={len(timer_hits)} hit(s)."
+        )
+    elif tools_found and not schedule_found:
+        result["status"] = "PARTIAL"
+        result["reason"] = (
+            f"Backup tool(s) installed ({tools_value}) but no cron job or systemd timer "
+            f"for backup was detected. Configure automated backup scheduling."
+        )
+    else:
+        result["status"] = "FAIL"
+        result["reason"] = "No backup tool installed and no backup schedule detected."
+
+    # Exposure: check if logging is active (mild mitigation — at least failures are logged)
+    exists_log, log_obj = get_check_object(audit, "results.logging.rsyslog_running")
+    if exists_log and log_obj.get("value") is True:
+        result["risk"]["mitigation"]["hits"].append("rsyslog_running")
+        result["risk"]["mitigation"]["percent"] = 0.05
+
+    result["recommendation"] = get_recommendation_for_status(control, result["status"])
+    return finalize_result(result)
+
+
+# -----------------------------------------------------------------------------
+# BKP-WINSVR-01 / BKP-W10-01: VSS enabled + shadow copies present (Windows)
+# PASS    = VSS Running AND shadow copies exist (or wbadmin available for Server)
+# PARTIAL = VSS Running but no shadow copies found
+# FAIL    = VSS not running
+# -----------------------------------------------------------------------------
+def evaluate_bkp_windows_01(
+    audit: Dict[str, Any],
+    control: Dict[str, Any],
+    platform: str,
+    applicability_context: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    result = build_base_result(control, platform)
+
+    exists_vss, vss_obj = get_check_object(audit, "results.backup.vss_service")
+    exists_shadows, shadows_obj = get_check_object(audit, "results.backup.shadow_copies")
+    exists_wbadmin, wbadmin_obj = get_check_object(audit, "results.backup.wbadmin_status")
+    exists_fh, fh_obj = get_check_object(audit, "results.backup.file_history_service")
+
+    if not exists_vss:
+        result["status"] = "UNKNOWN"
+        result["reason"] = "VSS service evidence could not be collected."
+        result["decision_source"] = "primary"
+        result["primary_evidence"] = build_evidence_block(
+            collected=False, path="results.backup.vss_service",
+            value=None, source=None, raw_snippet=None,
+            note="evidence path not found",
+        )
+        return finalize_result(result)
+
+    vss_value = vss_obj.get("value", {})
+    vss_status = ""
+    if isinstance(vss_value, dict):
+        vss_status = normalize_str(vss_value.get("Status", ""))
+    vss_running = vss_status == "running"
+
+    # Shadow copies evidence
+    shadows_value = shadows_obj.get("value", {}) if exists_shadows else {}
+    shadows_present = False
+    if isinstance(shadows_value, list) and len(shadows_value) > 0:
+        shadows_present = True
+    elif isinstance(shadows_value, dict):
+        count = shadows_value.get("count", -1)
+        shadows_present = count != 0
+
+    # wbadmin available? (Server only signal)
+    wbadmin_available = False
+    if exists_wbadmin and isinstance(wbadmin_obj.get("value"), dict):
+        wbadmin_available = bool(wbadmin_obj["value"].get("wbadmin_available", False))
+
+    result["primary_evidence"] = build_evidence_block(
+        collected=True,
+        path="results.backup.vss_service",
+        value=vss_value,
+        source=vss_obj.get("source"),
+        raw_snippet=vss_obj.get("evidence"),
+    )
+    result["secondary_evidence"] = build_evidence_block(
+        collected=exists_shadows,
+        path="results.backup.shadow_copies",
+        value=shadows_value,
+        source=shadows_obj.get("source") if exists_shadows else None,
+        raw_snippet=shadows_obj.get("evidence") if exists_shadows else None,
+    )
+    result["decision_source"] = "primary"
+
+    if vss_running and (shadows_present or wbadmin_available):
+        result["status"] = "PASS"
+        result["reason"] = (
+            f"VSS service is running. "
+            f"Shadow copies present: {shadows_present}. "
+            f"wbadmin available: {wbadmin_available}."
+        )
+    elif vss_running:
+        result["status"] = "PARTIAL"
+        result["reason"] = (
+            "VSS service is running but no shadow copies found and wbadmin is unavailable. "
+            "Configure a backup schedule to produce shadow copies."
+        )
+    else:
+        result["status"] = "FAIL"
+        result["reason"] = f"VSS service status: '{vss_status}'. Backup infrastructure is not running."
+
+    result["recommendation"] = get_recommendation_for_status(control, result["status"])
+    return finalize_result(result)
+
+
+# -----------------------------------------------------------------------------
+# AC-LNX-03: Inactive local accounts identified (Linux)
+# PASS    = no shell accounts have 'never logged in' status
+# PARTIAL = some never-logged-in accounts but count is low (1-2)
+# FAIL    = 3+ accounts have never logged in with active login shells
+# -----------------------------------------------------------------------------
+def evaluate_ac_lnx_03(
+    audit: Dict[str, Any],
+    control: Dict[str, Any],
+    platform: str,
+    applicability_context: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    result = build_base_result(control, platform)
+
+    exists_nli, nli_obj = get_check_object(audit, "results.access_control.accounts_never_logged_in")
+    exists_shell, shell_obj = get_check_object(audit, "results.access_control.shell_accounts_passwd")
+
+    if not exists_nli:
+        result["status"] = "UNKNOWN"
+        result["reason"] = "lastlog evidence could not be collected."
+        result["decision_source"] = "primary"
+        result["primary_evidence"] = build_evidence_block(
+            collected=False, path="results.access_control.accounts_never_logged_in",
+            value=None, source=None, raw_snippet=None, note="evidence path not found",
+        )
+        return finalize_result(result)
+
+    never_logged = nli_obj.get("value", [])
+    shell_accounts = shell_obj.get("value", []) if exists_shell else []
+
+    # Cross-reference: accounts that never logged in AND have a login shell
+    at_risk = [a for a in (never_logged if isinstance(never_logged, list) else [])
+               if a in (shell_accounts if isinstance(shell_accounts, list) else [])]
+
+    result["primary_evidence"] = build_evidence_block(
+        collected=True,
+        path="results.access_control.accounts_never_logged_in",
+        value=never_logged,
+        source=nli_obj.get("source"),
+        raw_snippet=nli_obj.get("evidence"),
+    )
+    result["secondary_evidence"] = build_evidence_block(
+        collected=exists_shell,
+        path="results.access_control.shell_accounts_passwd",
+        value=shell_accounts,
+        source=shell_obj.get("source") if exists_shell else None,
+        raw_snippet=shell_obj.get("evidence") if exists_shell else None,
+    )
+    result["decision_source"] = "primary"
+
+    if len(at_risk) == 0:
+        result["status"] = "PASS"
+        result["reason"] = "No human accounts with login shells have 'never logged in' status."
+    elif len(at_risk) <= 2:
+        result["status"] = "PARTIAL"
+        result["reason"] = (
+            f"{len(at_risk)} account(s) with login shells have never logged in: "
+            f"{', '.join(at_risk)}. Review and disable if no longer needed."
+        )
+    else:
+        result["status"] = "FAIL"
+        result["reason"] = (
+            f"{len(at_risk)} accounts with login shells have never logged in: "
+            f"{', '.join(at_risk)}. Disable or remove unused accounts."
+        )
+
+    result["recommendation"] = get_recommendation_for_status(control, result["status"])
+    return finalize_result(result)
+
+
+# -----------------------------------------------------------------------------
+# AC-LNX-04: Account lockout policy configured via PAM (Linux)
+# PASS = pam_faillock or pam_tally2 found in PAM + deny threshold set
+# FAIL = no lockout mechanism found
+# -----------------------------------------------------------------------------
+def evaluate_ac_lnx_04(
+    audit: Dict[str, Any],
+    control: Dict[str, Any],
+    platform: str,
+    applicability_context: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    result = build_base_result(control, platform)
+
+    exists_pam, pam_obj = get_check_object(audit, "results.access_control.account_lockout_pam")
+    exists_deny, deny_obj = get_check_object(audit, "results.access_control.faillock_conf_deny")
+
+    if not exists_pam:
+        result["status"] = "UNKNOWN"
+        result["reason"] = "PAM lockout configuration evidence could not be collected."
+        result["decision_source"] = "primary"
+        result["primary_evidence"] = build_evidence_block(
+            collected=False, path="results.access_control.account_lockout_pam",
+            value=None, source=None, raw_snippet=None, note="evidence path not found",
+        )
+        return finalize_result(result)
+
+    pam_mechanism = normalize_str(pam_obj.get("value", "none"))
+    deny_value = normalize_str(deny_obj.get("value", "not_set")) if exists_deny else "not_set"
+
+    # Check if a deny threshold is configured
+    deny_configured = deny_value not in ("not_set", "unknown", "error", "")
+
+    result["primary_evidence"] = build_evidence_block(
+        collected=True,
+        path="results.access_control.account_lockout_pam",
+        value=pam_obj.get("value"),
+        source=pam_obj.get("source"),
+        raw_snippet=pam_obj.get("evidence"),
+    )
+    result["secondary_evidence"] = build_evidence_block(
+        collected=exists_deny,
+        path="results.access_control.faillock_conf_deny",
+        value=deny_obj.get("value") if exists_deny else None,
+        source=deny_obj.get("source") if exists_deny else None,
+        raw_snippet=deny_obj.get("evidence") if exists_deny else None,
+    )
+    result["decision_source"] = "primary"
+
+    # Exposure: if SSH is active, brute-force risk is higher
+    exists_fw, fw_obj = get_check_object(audit, "results.firewall.ufw_status")
+    if exists_fw:
+        fw_active = normalize_str(fw_obj.get("value")) == "active"
+        result["supporting_validation"]["firewall_status"] = build_validation_block(
+            collected=True,
+            value=fw_obj.get("value"),
+            status="MISS" if fw_active else "HIT",
+            source=fw_obj.get("source"),
+            note="Firewall active reduces brute-force exposure.",
+        )
+        if fw_active:
+            result["risk"]["mitigation"]["hits"].append("ufw_active")
+            result["risk"]["mitigation"]["percent"] = 0.10
+
+    if pam_mechanism in ("pam_faillock", "pam_tally2") and deny_configured:
+        result["status"] = "PASS"
+        result["reason"] = (
+            f"Account lockout configured via {pam_mechanism}. "
+            f"Deny threshold: {deny_value}."
+        )
+    elif pam_mechanism in ("pam_faillock", "pam_tally2"):
+        result["status"] = "PASS"
+        result["reason"] = (
+            f"Account lockout module {pam_mechanism} present in PAM. "
+            f"Deny threshold not confirmed in faillock.conf — verify configuration."
+        )
+    else:
+        result["status"] = "FAIL"
+        result["reason"] = (
+            "No account lockout module (pam_faillock or pam_tally2) found in PAM configuration. "
+            "Brute-force attacks on local accounts are unrestricted."
+        )
+
+    result["recommendation"] = get_recommendation_for_status(control, result["status"])
+    return finalize_result(result)
+
+
+# -----------------------------------------------------------------------------
+# AC-WINSVR-02 / AC-W10-02: Guest account disabled (Windows)
+# PASS   = Guest account Enabled = False
+# FAIL   = Guest account Enabled = True
+# UNKNOWN = evidence error or account not found
+# -----------------------------------------------------------------------------
+def evaluate_ac_guest_windows(
+    audit: Dict[str, Any],
+    control: Dict[str, Any],
+    platform: str,
+    applicability_context: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    result = build_base_result(control, platform)
+
+    exists_guest, guest_obj = get_check_object(audit, "results.access_control.guest_account")
+
+    if not exists_guest:
+        result["status"] = "UNKNOWN"
+        result["reason"] = "Guest account evidence could not be collected."
+        result["decision_source"] = "primary"
+        result["primary_evidence"] = build_evidence_block(
+            collected=False, path="results.access_control.guest_account",
+            value=None, source=None, raw_snippet=None, note="evidence path not found",
+        )
+        return finalize_result(result)
+
+    guest_value = guest_obj.get("value", {})
+
+    if isinstance(guest_value, dict) and guest_value.get("note"):
+        # Account not found on system — treat as PASS (account doesn't exist = not a risk)
+        result["status"] = "PASS"
+        result["reason"] = f"Guest account not found on this system: {guest_value.get('note')}"
+        result["decision_source"] = "primary"
+        result["primary_evidence"] = build_evidence_block(
+            collected=True,
+            path="results.access_control.guest_account",
+            value=guest_value,
+            source=guest_obj.get("source"),
+            raw_snippet=guest_obj.get("evidence"),
+        )
+        result["recommendation"] = get_recommendation_for_status(control, "PASS")
+        return finalize_result(result)
+
+    if not isinstance(guest_value, dict) or guest_value == "error":
+        result["status"] = "UNKNOWN"
+        result["reason"] = "Guest account data could not be parsed."
+        result["decision_source"] = "primary"
+        result["primary_evidence"] = build_evidence_block(
+            collected=True,
+            path="results.access_control.guest_account",
+            value=guest_value,
+            source=guest_obj.get("source"),
+            raw_snippet=guest_obj.get("evidence"),
+        )
+        return finalize_result(result)
+
+    guest_enabled = guest_value.get("Enabled")
+
+    result["primary_evidence"] = build_evidence_block(
+        collected=True,
+        path="results.access_control.guest_account",
+        value=guest_value,
+        source=guest_obj.get("source"),
+        raw_snippet=guest_obj.get("evidence"),
+    )
+    result["decision_source"] = "primary"
+
+    if guest_enabled is False:
+        result["status"] = "PASS"
+        result["reason"] = "Guest account exists but is disabled (Enabled=False)."
+    elif guest_enabled is True:
+        result["status"] = "FAIL"
+        result["reason"] = "Guest account is enabled. This allows unauthenticated access."
+    else:
+        result["status"] = "UNKNOWN"
+        result["reason"] = f"Guest account Enabled field could not be interpreted: {guest_enabled!r}"
+
+    result["recommendation"] = get_recommendation_for_status(control, result["status"])
+    return finalize_result(result)
+
+
+# -----------------------------------------------------------------------------
+# CRYPTO-WINSVR-01: TLS 1.0/1.1 disabled, TLS 1.2/1.3 enforced (Windows Server)
+# PASS    = TLS 1.0 disabled AND TLS 1.1 disabled AND TLS 1.2 not disabled
+# PARTIAL = TLS 1.2 present but weak versions not explicitly disabled
+# FAIL    = TLS 1.0 or 1.1 explicitly enabled
+# -----------------------------------------------------------------------------
+def evaluate_crypto_winsvr_01(
+    audit: Dict[str, Any],
+    control: Dict[str, Any],
+    platform: str,
+    applicability_context: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    result = build_base_result(control, platform)
+
+    exists_tls, tls_obj = get_check_object(audit, "results.crypto.tls_registry")
+
+    if not exists_tls:
+        result["status"] = "UNKNOWN"
+        result["reason"] = "TLS registry evidence could not be collected."
+        result["decision_source"] = "primary"
+        result["primary_evidence"] = build_evidence_block(
+            collected=False, path="results.crypto.tls_registry",
+            value=None, source=None, raw_snippet=None, note="evidence path not found",
+        )
+        return finalize_result(result)
+
+    tls_value = tls_obj.get("value", {})
+
+    if not isinstance(tls_value, dict) or tls_value == "error":
+        result["status"] = "UNKNOWN"
+        result["reason"] = "TLS registry data could not be parsed."
+        result["decision_source"] = "primary"
+        result["primary_evidence"] = build_evidence_block(
+            collected=True,
+            path="results.crypto.tls_registry",
+            value=tls_value,
+            source=tls_obj.get("source"),
+            raw_snippet=tls_obj.get("evidence"),
+        )
+        return finalize_result(result)
+
+    def _is_disabled(ver_key: str) -> Optional[bool]:
+        """None = key not present (no explicit setting). True = disabled. False = explicitly enabled."""
+        ver_data = tls_value.get(ver_key, {})
+        if not isinstance(ver_data, dict):
+            return None
+        server_enabled = ver_data.get("server_enabled")
+        server_path = ver_data.get("server_path_exists", False)
+        if not server_path or server_enabled is None:
+            return None  # no explicit registry setting
+        # Enabled=0 means disabled, Enabled=1 means enabled
+        return server_enabled == 0
+
+    tls10_disabled = _is_disabled("TLS_1.0")
+    tls11_disabled = _is_disabled("TLS_1.1")
+    tls12_data = tls_value.get("TLS_1.2", {})
+    tls12_path_exists = tls12_data.get("server_path_exists", False) if isinstance(tls12_data, dict) else False
+    tls12_server_enabled = tls12_data.get("server_enabled") if isinstance(tls12_data, dict) else None
+    tls12_explicitly_disabled = (tls12_server_enabled == 0) if tls12_server_enabled is not None else False
+
+    result["primary_evidence"] = build_evidence_block(
+        collected=True,
+        path="results.crypto.tls_registry",
+        value=tls_value,
+        source=tls_obj.get("source"),
+        raw_snippet=tls_obj.get("evidence"),
+    )
+    result["decision_source"] = "primary"
+
+    # Determine status
+    weak_enabled = (tls10_disabled is False) or (tls11_disabled is False)
+    weak_disabled = (tls10_disabled is True) and (tls11_disabled is True)
+    no_explicit_setting = (tls10_disabled is None) and (tls11_disabled is None)
+
+    if tls12_explicitly_disabled:
+        result["status"] = "FAIL"
+        result["reason"] = "TLS 1.2 is explicitly disabled in the registry. This breaks secure connections."
+    elif weak_enabled:
+        result["status"] = "FAIL"
+        problems = []
+        if tls10_disabled is False:
+            problems.append("TLS 1.0 explicitly enabled")
+        if tls11_disabled is False:
+            problems.append("TLS 1.1 explicitly enabled")
+        result["reason"] = f"Weak TLS versions still enabled: {', '.join(problems)}."
+    elif weak_disabled:
+        result["status"] = "PASS"
+        result["reason"] = "TLS 1.0 and 1.1 are explicitly disabled. TLS 1.2 is available."
+    elif no_explicit_setting:
+        result["status"] = "PARTIAL"
+        result["reason"] = (
+            "No explicit SCHANNEL registry entries found for TLS versions. "
+            "Windows defaults may allow TLS 1.0/1.1. Explicitly disable them in the registry."
+        )
+    else:
+        result["status"] = "PARTIAL"
+        result["reason"] = (
+            f"TLS 1.0 disabled: {tls10_disabled}, TLS 1.1 disabled: {tls11_disabled}. "
+            "Not all weak versions are explicitly disabled."
+        )
+
+    result["recommendation"] = get_recommendation_for_status(control, result["status"])
+    return finalize_result(result)
+
+
+# -----------------------------------------------------------------------------
+# CRYPTO-W10-01: BitLocker enabled on OS drive (Windows 10)
+# PASS    = Protection Status = "Protection On"
+# PARTIAL = BitLocker configured but suspended
+# FAIL    = Not encrypted / protection off
+# -----------------------------------------------------------------------------
+def evaluate_crypto_w10_01(
+    audit: Dict[str, Any],
+    control: Dict[str, Any],
+    platform: str,
+    applicability_context: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    result = build_base_result(control, platform)
+
+    exists_bl, bl_obj = get_check_object(audit, "results.crypto.bitlocker_status")
+
+    if not exists_bl:
+        result["status"] = "UNKNOWN"
+        result["reason"] = "BitLocker status evidence could not be collected."
+        result["decision_source"] = "primary"
+        result["primary_evidence"] = build_evidence_block(
+            collected=False, path="results.crypto.bitlocker_status",
+            value=None, source=None, raw_snippet=None, note="evidence path not found",
+        )
+        return finalize_result(result)
+
+    bl_value = bl_obj.get("value", {})
+
+    if not isinstance(bl_value, dict) or bl_value == "error":
+        result["status"] = "UNKNOWN"
+        result["reason"] = "BitLocker data could not be parsed or collected."
+        result["primary_evidence"] = build_evidence_block(
+            collected=True,
+            path="results.crypto.bitlocker_status",
+            value=bl_value,
+            source=bl_obj.get("source"),
+            raw_snippet=bl_obj.get("evidence"),
+        )
+        result["decision_source"] = "primary"
+        return finalize_result(result)
+
+    result["primary_evidence"] = build_evidence_block(
+        collected=True,
+        path="results.crypto.bitlocker_status",
+        value=bl_value,
+        source=bl_obj.get("source"),
+        raw_snippet=bl_obj.get("evidence"),
+    )
+    result["decision_source"] = "primary"
+
+    # Handle both manage-bde and Get-BitLockerVolume output shapes
+    source_tool = normalize_str(bl_value.get("source", ""))
+
+    if source_tool == "manage-bde":
+        protection_raw = normalize_str(bl_value.get("protection_status", ""))
+        if "protection on" in protection_raw:
+            result["status"] = "PASS"
+            result["reason"] = f"BitLocker protection is ON. {protection_raw}"
+        elif "protection off" in protection_raw:
+            # Check conversion status — might be encrypting
+            conversion_raw = normalize_str(bl_value.get("conversion_status", ""))
+            if "encrypting" in conversion_raw or "encryption in progress" in conversion_raw:
+                result["status"] = "PARTIAL"
+                result["reason"] = "BitLocker encryption is in progress but protection is not yet fully active."
+            else:
+                result["status"] = "FAIL"
+                result["reason"] = f"BitLocker protection is OFF. Drive is not encrypted. {protection_raw}"
+        else:
+            result["status"] = "UNKNOWN"
+            result["reason"] = f"BitLocker protection status could not be interpreted: {protection_raw!r}"
+
+    elif source_tool == "get-bitlockervolume":
+        protection_status = normalize_str(bl_value.get("protection_status", ""))
+        volume_status = normalize_str(bl_value.get("volume_status", ""))
+        if protection_status == "on":
+            result["status"] = "PASS"
+            result["reason"] = f"BitLocker ProtectionStatus=On. VolumeStatus={volume_status}."
+        elif "suspended" in protection_status:
+            result["status"] = "PARTIAL"
+            result["reason"] = f"BitLocker is suspended (ProtectionStatus={protection_status}). Resume protection."
+        elif protection_status == "off":
+            result["status"] = "FAIL"
+            result["reason"] = "BitLocker ProtectionStatus=Off. Drive encryption is disabled."
+        else:
+            result["status"] = "UNKNOWN"
+            result["reason"] = f"BitLocker ProtectionStatus could not be interpreted: {protection_status!r}"
+    else:
+        result["status"] = "UNKNOWN"
+        result["reason"] = "BitLocker data format not recognised."
+
+    result["recommendation"] = get_recommendation_for_status(control, result["status"])
+    return finalize_result(result)
+
+
+# -----------------------------------------------------------------------------
+# LOG-LNX-03: Log rotation configured (Linux)
+# PASS    = logrotate installed + conf files exist + trigger found
+# PARTIAL = logrotate installed + conf files exist but no trigger
+# FAIL    = logrotate not installed
+# -----------------------------------------------------------------------------
+def evaluate_log_lnx_03(
+    audit: Dict[str, Any],
+    control: Dict[str, Any],
+    platform: str,
+    applicability_context: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    result = build_base_result(control, platform)
+
+    exists_inst, inst_obj = get_check_object(audit, "results.logging.logrotate_installed")
+    exists_conf, conf_obj = get_check_object(audit, "results.logging.logrotate_d_configs")
+    exists_trigger, trigger_obj = get_check_object(audit, "results.logging.logrotate_trigger")
+
+    if not exists_inst:
+        result["status"] = "UNKNOWN"
+        result["reason"] = "logrotate installation evidence could not be collected."
+        result["decision_source"] = "primary"
+        result["primary_evidence"] = build_evidence_block(
+            collected=False, path="results.logging.logrotate_installed",
+            value=None, source=None, raw_snippet=None, note="evidence path not found",
+        )
+        return finalize_result(result)
+
+    installed = bool(inst_obj.get("value") is True)
+    conf_count = int(conf_obj.get("value", 0)) if exists_conf else 0
+    trigger_list = trigger_obj.get("value", []) if exists_trigger else []
+    trigger_found = isinstance(trigger_list, list) and len(trigger_list) > 0
+
+    result["primary_evidence"] = build_evidence_block(
+        collected=True,
+        path="results.logging.logrotate_installed",
+        value=inst_obj.get("value"),
+        source=inst_obj.get("source"),
+        raw_snippet=inst_obj.get("evidence"),
+    )
+    result["secondary_evidence"] = build_evidence_block(
+        collected=exists_conf,
+        path="results.logging.logrotate_d_configs",
+        value=conf_obj.get("value") if exists_conf else None,
+        source=conf_obj.get("source") if exists_conf else None,
+        raw_snippet=conf_obj.get("evidence") if exists_conf else None,
+    )
+    result["decision_source"] = "primary"
+
+    result["supporting_validation"]["logrotate_trigger"] = build_validation_block(
+        collected=exists_trigger,
+        value=trigger_list,
+        status="HIT" if trigger_found else "MISS",
+        source=trigger_obj.get("source") if exists_trigger else None,
+        note="systemd timer or cron.daily trigger for logrotate.",
+    )
+
+    if installed and conf_count > 0 and trigger_found:
+        result["status"] = "PASS"
+        result["reason"] = (
+            f"logrotate installed, {conf_count} config file(s) in /etc/logrotate.d. "
+            f"Trigger: {'; '.join(trigger_list)}."
+        )
+    elif installed and conf_count > 0:
+        result["status"] = "PARTIAL"
+        result["reason"] = (
+            f"logrotate installed with {conf_count} config file(s) but no trigger found "
+            f"(no systemd timer or /etc/cron.daily/logrotate). Logs may not rotate automatically."
+        )
+    elif installed:
+        result["status"] = "PARTIAL"
+        result["reason"] = "logrotate installed but no config files found in /etc/logrotate.d."
+    else:
+        result["status"] = "FAIL"
+        result["reason"] = "logrotate is not installed. Log files will grow without bound."
+
+    result["recommendation"] = get_recommendation_for_status(control, result["status"])
+    return finalize_result(result)
+
+
+CUSTOM_EVALUATORS = {
+    # --- existing ---
+    "evaluate_ac_lnx_01": evaluate_ac_lnx_01,
+    "evaluate_ac_lnx_02": evaluate_ac_lnx_02,
+    "evaluate_fw_lnx_01": evaluate_fw_lnx_01,
+    "evaluate_log_lnx_01": evaluate_log_lnx_01,
+    "evaluate_log_lnx_02": evaluate_log_lnx_02,
+    "evaluate_crypto_lnx_01": evaluate_crypto_lnx_01,
+    "evaluate_ep_w10_01": evaluate_ep_w10_01,
+    "evaluate_upd_windows_01": evaluate_upd_windows_01,
+    "evaluate_fw_windows_01": evaluate_fw_windows_01,
+    "evaluate_ac_windows_01": evaluate_ac_windows_01,
+    "evaluate_log_windows_01": evaluate_log_windows_01,
+    # --- new: Backup & Recovery ---
+    "evaluate_bkp_lnx_01": evaluate_bkp_lnx_01,
+    "evaluate_bkp_windows_01": evaluate_bkp_windows_01,
+    # --- new: Access Control ---
+    "evaluate_ac_lnx_03": evaluate_ac_lnx_03,
+    "evaluate_ac_lnx_04": evaluate_ac_lnx_04,
+    "evaluate_ac_guest_windows": evaluate_ac_guest_windows,
+    # --- new: Cryptography ---
+    "evaluate_crypto_winsvr_01": evaluate_crypto_winsvr_01,
+    "evaluate_crypto_w10_01": evaluate_crypto_w10_01,
+    # --- new: Logging ---
+    "evaluate_log_lnx_03": evaluate_log_lnx_03,
+}
+
+
+def evaluate_control(
+    audit: Dict[str, Any],
+    control: Dict[str, Any],
+    platform: str,
+    applicability_context: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    evaluator_name = control.get("evaluator")
+    if evaluator_name and evaluator_name in CUSTOM_EVALUATORS:
+        return CUSTOM_EVALUATORS[evaluator_name](audit, control, platform, applicability_context)
+
+    return evaluate_control_generic(audit, control, platform, applicability_context)
 
 
 # -----------------------------
@@ -1386,4 +2787,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main() 
