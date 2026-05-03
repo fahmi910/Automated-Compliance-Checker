@@ -52,7 +52,23 @@ def run() -> dict:
     # 2) Cron-based backup jobs
     #    Look for backup-related entries in system crontabs and /etc/cron.*
     # ----------------------------------------------------------------
-    backup_keywords = ["rsync", "backup", "tar", "borg", "timeshift", "duplicati", "dump"]
+    backup_keywords = ["rsync", "borg", "timeshift", "duplicati", "restic", "rclone"]
+    # NOTE: "backup" and "tar" alone are too generic (dpkg-db-backup, man-db match falsely).
+    # We use explicit tool names + tar-with-flags logic instead.
+    exclude_filenames = {
+        "dpkg", "dpkg-db-backup", "man-db", "logrotate", "sysstat",
+        "apt-compat", "apt", "apport", "mlocate", "fstrim", "ubuntu-advantage-tools",
+    }
+
+    def _is_user_backup_line(line: str) -> bool:
+        """Return True only if a cron line looks like a real data backup command."""
+        low = line.lower()
+        if any(kw in low for kw in backup_keywords):
+            return True
+        # tar with explicit backup-style creation flags
+        if "tar" in low and any(flag in low for flag in ["-czf", "-cjf", "-caf", "--create", "-cvf"]):
+            return True
+        return False
 
     cron_hits = []
 
@@ -62,8 +78,7 @@ def run() -> dict:
         stripped = line.strip()
         if stripped.startswith("#") or not stripped:
             continue
-        low = stripped.lower()
-        if any(kw in low for kw in backup_keywords):
+        if _is_user_backup_line(stripped):
             cron_hits.append(f"/etc/crontab: {stripped[:120]}")
 
     # /etc/cron.d/*, /etc/cron.daily/*, /etc/cron.weekly/*
@@ -72,16 +87,18 @@ def run() -> dict:
             continue
         try:
             for fname in os.listdir(cron_dir):
+                # Skip known system-maintenance script files by filename
+                if fname.lower() in exclude_filenames or fname.lower().rstrip(".") in exclude_filenames:
+                    continue
                 fpath = os.path.join(cron_dir, fname)
                 if not os.path.isfile(fpath):
                     continue
-                content = _read_file(fpath)
-                for line in content.splitlines():
+                file_content = _read_file(fpath)
+                for line in file_content.splitlines():
                     stripped = line.strip()
                     if stripped.startswith("#") or not stripped:
                         continue
-                    low = stripped.lower()
-                    if any(kw in low for kw in backup_keywords):
+                    if _is_user_backup_line(stripped):
                         cron_hits.append(f"{fpath}: {stripped[:120]}")
                         break  # one hit per file is enough
         except Exception:
@@ -94,8 +111,7 @@ def run() -> dict:
             stripped = line.strip()
             if stripped.startswith("#") or not stripped:
                 continue
-            low = stripped.lower()
-            if any(kw in low for kw in backup_keywords):
+            if _is_user_backup_line(stripped):
                 cron_hits.append(f"root crontab: {stripped[:120]}")
 
     results["backup_cron_jobs"] = make_check(
@@ -108,6 +124,12 @@ def run() -> dict:
     # 3) Systemd timer-based backup jobs
     #    Look for active/enabled timers with backup-related names
     # ----------------------------------------------------------------
+    # System timer exclusions — same logic as cron
+    exclude_timer_names = {
+        "dpkg-db-backup", "man-db", "logrotate", "apt-daily",
+        "apt-daily-upgrade", "fstrim", "motd-news", "ua-timer",
+    }
+
     ok_timers, timers_stdout, timers_cmd = _cmd_ok(
         ["systemctl", "list-timers", "--all", "--no-pager"]
     )
@@ -116,7 +138,10 @@ def run() -> dict:
     if ok_timers and timers_stdout:
         for line in timers_stdout.splitlines():
             low = line.lower()
-            if any(kw in low for kw in backup_keywords):
+            # Skip known system maintenance timers by name
+            if any(excl in low for excl in exclude_timer_names):
+                continue
+            if _is_user_backup_line(line):
                 timer_hits.append(line.strip()[:160])
 
     results["backup_systemd_timers"] = make_check(
