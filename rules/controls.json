@@ -33,7 +33,19 @@
       ],
       "pdpa_mapping": [
         "Security principle: protect personal data via strong access control."
-      ]
+      ],
+      "plain_reason": {
+        "PASS": "Root login over SSH is properly blocked. Only normal user accounts can connect remotely.",
+        "PARTIAL": "Root login is blocked for passwords but may still be possible using SSH keys. This is better than fully open, but not completely safe.",
+        "FAIL": "The most powerful account on this server (root) can be accessed directly over the internet. If an attacker guesses or steals the root password, they get full control of the server instantly.",
+        "UNKNOWN": "We were unable to check whether root login is allowed or blocked. The SSH service may not be running or accessible."
+      },
+      "plain_recommendation": {
+        "PASS": "Everything looks good. No action needed.",
+        "PARTIAL": "Update the SSH settings to fully block root login by setting PermitRootLogin to 'no', then restart the SSH service.",
+        "FAIL": "Turn off root login for SSH. Go to the SSH settings file (/etc/ssh/sshd_config), change 'PermitRootLogin yes' to 'PermitRootLogin no', then restart SSH. Use a normal account to log in instead.",
+        "UNKNOWN": "Check that the SSH service is running and try running the audit again."
+      }
     },
     {
       "control_id": "AC-LNX-02",
@@ -60,7 +72,17 @@
       ],
       "pdpa_mapping": [
         "Security principle: reduce credential compromise and brute-force risk."
-      ]
+      ],
+      "plain_reason": {
+        "PASS": "Password-based SSH login is disabled. Only secure key-based login is allowed, which is much harder to attack.",
+        "FAIL": "Anyone trying to connect to this server over SSH can attempt to guess the password. Passwords can be stolen, guessed, or cracked — making this a significant risk.",
+        "UNKNOWN": "We could not check whether password-based SSH login is enabled or disabled."
+      },
+      "plain_recommendation": {
+        "PASS": "Everything looks good. No action needed.",
+        "FAIL": "Switch to SSH key-based login (like a digital ID card) and turn off password login. Update the SSH settings file (/etc/ssh/sshd_config), set 'PasswordAuthentication no', and restart SSH.",
+        "UNKNOWN": "Check that the SSH service is running and try running the audit again."
+      }
     },
     {
       "control_id": "LOG-LNX-01",
@@ -86,7 +108,17 @@
       ],
       "pdpa_mapping": [
         "Security principle: maintain audit trails and monitoring visibility."
-      ]
+      ],
+      "plain_reason": {
+        "PASS": "The system logging service is running and recording system activity. This means there is a record of what happens on this server.",
+        "FAIL": "The system logging service is not running. This means there is no record of what is happening on this server — if something goes wrong or someone breaks in, there will be no trail to investigate.",
+        "UNKNOWN": "We could not check whether the system logging service is running."
+      },
+      "plain_recommendation": {
+        "PASS": "Everything looks good. No action needed.",
+        "FAIL": "Start the logging service by running: sudo systemctl start rsyslog and sudo systemctl enable rsyslog. This ensures logs are recorded and kept even after a restart.",
+        "UNKNOWN": "Try running the audit again and ensure the system services are accessible."
+      }
     },
     {
       "control_id": "LOG-LNX-02",
@@ -112,7 +144,19 @@
       ],
       "pdpa_mapping": [
         "Security principle: maintain access logs for accountability."
-      ]
+      ],
+      "plain_reason": {
+        "PASS": "The authentication log file exists and contains recent login activity. Login attempts are being recorded.",
+        "PARTIAL": "The login record file exists but it appears to be empty or inactive. This means login attempts may not be getting recorded properly.",
+        "FAIL": "The login record file is missing entirely. There is no record of who has logged in or attempted to log in to this server.",
+        "UNKNOWN": "We could not check whether the login record file exists or contains activity."
+      },
+      "plain_recommendation": {
+        "PASS": "Everything looks good. No action needed.",
+        "PARTIAL": "Check that the logging service is running and sending login events to the log file. Verify by running: sudo systemctl status rsyslog",
+        "FAIL": "Enable authentication logging by ensuring rsyslog is running and configured to write to /var/log/auth.log.",
+        "UNKNOWN": "Try running the audit again."
+      }
     },
     {
       "control_id": "FW-LNX-01",
@@ -139,7 +183,17 @@
       ],
       "pdpa_mapping": [
         "Security principle: prevent unauthorized network access."
-      ]
+      ],
+      "plain_reason": {
+        "PASS": "The firewall is turned on and blocking unauthorised connections. The server is protected from unwanted network access.",
+        "FAIL": "The firewall is turned off. This means the server has no protection against unauthorised network connections — anyone on the network could attempt to connect to any service on this server.",
+        "UNKNOWN": "We could not check whether the firewall is turned on or off."
+      },
+      "plain_recommendation": {
+        "PASS": "Everything looks good. No action needed.",
+        "FAIL": "Turn on the firewall by running: sudo ufw enable. Then allow only the services you need (e.g. sudo ufw allow ssh) and block everything else by default.",
+        "UNKNOWN": "Try running the audit again and ensure the system is accessible."
+      }
     },
     {
       "control_id": "CRYPTO-LNX-01",
@@ -165,7 +219,17 @@
       ],
       "pdpa_mapping": [
         "Security principle: protect confidentiality of data in transit."
-      ]
+      ],
+      "plain_reason": {
+        "PASS": "The SSH connection uses modern, secure encryption methods. Data travelling between your computer and this server is well protected.",
+        "FAIL": "The SSH connection is using old, weak encryption methods that can be broken by modern attackers. Any data sent over this connection could potentially be intercepted.",
+        "UNKNOWN": "We could not check the encryption settings for the SSH service."
+      },
+      "plain_recommendation": {
+        "PASS": "Everything looks good. No action needed.",
+        "FAIL": "Update the SSH settings to only allow modern encryption. Remove old algorithms like CBC, 3DES, and SHA1 from the SSH configuration file and restart the SSH service.",
+        "UNKNOWN": "Try running the audit again and ensure the SSH service is running."
+      }
     },
     {
       "control_id": "FW-WINSVR-01",
@@ -193,7 +257,19 @@
       ],
       "pdpa_mapping": [
         "Security principle: protect server from unauthorized network access."
-      ]
+      ],
+      "plain_reason": {
+        "PASS": "Windows Firewall is turned on for all network profiles. The server is protected from unauthorised connections.",
+        "PARTIAL": "Windows Firewall is turned on but the settings allow too many incoming connections. This reduces the protection it provides.",
+        "FAIL": "Windows Firewall is turned off on one or more network profiles. The server has no protection against unauthorised network connections.",
+        "UNKNOWN": "We could not check the Windows Firewall status."
+      },
+      "plain_recommendation": {
+        "PASS": "Everything looks good. No action needed.",
+        "PARTIAL": "Review the firewall rules and set the default inbound action to Block for all profiles. Only allow connections that are specifically needed.",
+        "FAIL": "Turn on Windows Firewall for all profiles. Open Windows Defender Firewall settings and enable it for Domain, Private, and Public profiles.",
+        "UNKNOWN": "Try running the audit again with administrator access."
+      }
     },
     {
       "control_id": "LOG-WINSVR-01",
@@ -219,7 +295,17 @@
       ],
       "pdpa_mapping": [
         "Security principle: maintain audit trails and monitoring visibility."
-      ]
+      ],
+      "plain_reason": {
+        "PASS": "The Windows Event Log service is running and recording system activity. Security events are being logged.",
+        "FAIL": "The Windows Event Log service is not running. This means no system activity is being recorded — if something goes wrong, there will be nothing to investigate.",
+        "UNKNOWN": "We could not check whether the Windows Event Log service is running."
+      },
+      "plain_recommendation": {
+        "PASS": "Everything looks good. No action needed.",
+        "FAIL": "Start the Windows Event Log service. Open Services (services.msc), find 'Windows Event Log', right-click and select Start. Set it to start automatically.",
+        "UNKNOWN": "Try running the audit again with administrator access."
+      }
     },
     {
       "control_id": "AC-WINSVR-01",
@@ -245,7 +331,17 @@
       ],
       "pdpa_mapping": [
         "Security principle: enforce strong authentication to reduce account compromise."
-      ]
+      ],
+      "plain_reason": {
+        "PASS": "Password complexity rules are turned on. Users must create passwords that are harder to guess.",
+        "FAIL": "Users on this server can set very simple passwords like '1234' or 'password'. Simple passwords are easy to guess or crack, giving attackers easy access.",
+        "UNKNOWN": "We could not check the password policy settings on this server."
+      },
+      "plain_recommendation": {
+        "PASS": "Everything looks good. No action needed.",
+        "FAIL": "Turn on password complexity rules through the Local Security Policy or Group Policy. This forces users to create stronger passwords with a mix of letters, numbers, and symbols.",
+        "UNKNOWN": "Try running the audit again. Make sure the system's security policy files are accessible."
+      }
     },
     {
       "control_id": "FW-W10-01",
@@ -273,7 +369,19 @@
       ],
       "pdpa_mapping": [
         "Security principle: reduce unauthorized network access."
-      ]
+      ],
+      "plain_reason": {
+        "PASS": "Windows Firewall is turned on and blocking unauthorised connections on this computer.",
+        "PARTIAL": "Windows Firewall is on but some settings allow too many incoming connections, reducing its effectiveness.",
+        "FAIL": "Windows Firewall is turned off. This computer has no protection against unauthorised network connections.",
+        "UNKNOWN": "We could not check the Windows Firewall status on this computer."
+      },
+      "plain_recommendation": {
+        "PASS": "Everything looks good. No action needed.",
+        "PARTIAL": "Review the firewall rules and set incoming connections to blocked by default. Only allow programs and services that are specifically needed.",
+        "FAIL": "Turn on Windows Firewall. Go to Settings → Windows Security → Firewall & network protection, and turn it on for all network types.",
+        "UNKNOWN": "Try running the audit again."
+      }
     },
     {
       "control_id": "LOG-W10-01",
@@ -299,7 +407,17 @@
       ],
       "pdpa_mapping": [
         "Security principle: maintain audit trails and monitoring visibility."
-      ]
+      ],
+      "plain_reason": {
+        "PASS": "The Windows Event Log service is running and recording system activity.",
+        "FAIL": "The Windows Event Log service is not running. System activity is not being recorded.",
+        "UNKNOWN": "We could not check whether the Windows Event Log service is running."
+      },
+      "plain_recommendation": {
+        "PASS": "Everything looks good. No action needed.",
+        "FAIL": "Start the Windows Event Log service. Open Services (services.msc), find 'Windows Event Log', and set it to Automatic startup.",
+        "UNKNOWN": "Try running the audit again."
+      }
     },
     {
       "control_id": "AC-W10-01",
@@ -325,7 +443,17 @@
       ],
       "pdpa_mapping": [
         "Security principle: enforce strong authentication to reduce account compromise."
-      ]
+      ],
+      "plain_reason": {
+        "PASS": "Password complexity rules are turned on. Users must create passwords that are harder to guess.",
+        "FAIL": "Users on this computer can set very simple passwords. Simple passwords are easy to guess, giving attackers easy access to the computer.",
+        "UNKNOWN": "We could not check the password policy settings on this computer."
+      },
+      "plain_recommendation": {
+        "PASS": "Everything looks good. No action needed.",
+        "FAIL": "Turn on password complexity rules through the Local Security Policy. This forces users to create stronger passwords.",
+        "UNKNOWN": "Try running the audit again."
+      }
     },
     {
       "control_id": "UPD-WINSVR-01",
@@ -352,7 +480,19 @@
       ],
       "pdpa_mapping": [
         "Security principle: reduce exposure to known vulnerabilities through timely patching."
-      ]
+      ],
+      "plain_reason": {
+        "PASS": "Windows Update is running automatically and this server has recent security patches installed. Known security weaknesses are being fixed regularly.",
+        "PARTIAL": "Windows Update is running but the last security patch installed was a long time ago. Outdated patches mean known security weaknesses have not been fixed.",
+        "FAIL": "The Windows Update service is not running. This server is not receiving security patches, leaving known weaknesses unfixed and making it easier for attackers to break in.",
+        "UNKNOWN": "We could not check the Windows Update status on this server."
+      },
+      "plain_recommendation": {
+        "PASS": "Everything looks good. No action needed.",
+        "PARTIAL": "Check why updates are not being applied. Open Windows Update settings and run a manual check for updates. Ensure the server is set to receive updates automatically.",
+        "FAIL": "Start the Windows Update service. Open Services (services.msc), find 'Windows Update', set it to Automatic, and start it. Then run Windows Update to install any missed patches.",
+        "UNKNOWN": "Try running the audit again with administrator access."
+      }
     },
     {
       "control_id": "UPD-W10-01",
@@ -379,7 +519,19 @@
       ],
       "pdpa_mapping": [
         "Security principle: reduce exposure to known vulnerabilities through timely patching."
-      ]
+      ],
+      "plain_reason": {
+        "PASS": "Windows Update is running and this computer has recent security patches installed.",
+        "PARTIAL": "Windows Update is running but the last update was a long time ago. Known security weaknesses may not have been fixed.",
+        "FAIL": "The Windows Update service is not running. This computer is not receiving security patches.",
+        "UNKNOWN": "We could not check the Windows Update status on this computer."
+      },
+      "plain_recommendation": {
+        "PASS": "Everything looks good. No action needed.",
+        "PARTIAL": "Open Windows Update (Settings → Windows Update) and check for updates. Install any available security updates.",
+        "FAIL": "Turn on Windows Update. Go to Settings → Windows Update and ensure updates are set to download and install automatically.",
+        "UNKNOWN": "Try running the audit again."
+      }
     },
     {
       "control_id": "EP-W10-01",
@@ -405,7 +557,19 @@
       ],
       "pdpa_mapping": [
         "Security principle: prevent malware incidents affecting personal data."
-      ]
+      ],
+      "plain_reason": {
+        "PASS": "Windows Defender antivirus is running and its virus definitions are up to date. The computer is protected against known malware.",
+        "PARTIAL": "Windows Defender is running but its virus definition files are out of date. This means it may not recognise the latest viruses and malware.",
+        "FAIL": "Real-time antivirus protection is turned off. The computer is not protected against viruses, malware, and other threats.",
+        "UNKNOWN": "We could not check the antivirus status on this computer."
+      },
+      "plain_recommendation": {
+        "PASS": "Everything looks good. No action needed.",
+        "PARTIAL": "Update Windows Defender immediately. Open Windows Security → Virus & threat protection → Check for updates. Make sure automatic definition updates are enabled.",
+        "FAIL": "Turn on Windows Defender real-time protection. Go to Settings → Windows Security → Virus & threat protection → Manage settings, and turn on Real-time protection.",
+        "UNKNOWN": "Try running the audit again with administrator access."
+      }
     },
     {
       "control_id": "BKP-LNX-01",
@@ -432,7 +596,19 @@
       ],
       "pdpa_mapping": [
         "Security principle: ensure personal data can be recovered after loss or destruction."
-      ]
+      ],
+      "plain_reason": {
+        "PASS": "A backup tool is installed and automatic backups are scheduled. Files and data on this server are being backed up regularly.",
+        "PARTIAL": "A backup tool is installed but no automatic backup schedule was found. This means backups may not be happening, and data could be lost if something goes wrong.",
+        "FAIL": "No backup tool is installed and no backups are being taken. If this server experiences a failure, hardware problem, or cyber attack, all data could be permanently lost.",
+        "UNKNOWN": "We could not check whether a backup tool or backup schedule is configured."
+      },
+      "plain_recommendation": {
+        "PASS": "Everything looks good. Regularly check that your backups are completing successfully and test restoring a file occasionally.",
+        "PARTIAL": "Set up an automatic backup schedule. Configure a task that runs the backup tool regularly (e.g. every night). Ask your IT team to set up a cron job or scheduled task for this.",
+        "FAIL": "Install a backup tool (such as rsync or timeshift) and configure it to back up important data automatically on a regular schedule.",
+        "UNKNOWN": "Try running the audit again and check that the system is accessible."
+      }
     },
     {
       "control_id": "BKP-WINSVR-01",
@@ -459,7 +635,19 @@
       ],
       "pdpa_mapping": [
         "Security principle: ensure personal data can be recovered after loss or destruction."
-      ]
+      ],
+      "plain_reason": {
+        "PASS": "The Windows backup service is running and backup copies of files exist. Data on this server can be recovered if something goes wrong.",
+        "PARTIAL": "The backup service is running but no backup copies were found. The service is ready but has not actually saved any backups yet.",
+        "FAIL": "The Windows backup service is not running and there are no backup copies of any files. If this server fails, all data could be permanently lost.",
+        "UNKNOWN": "We could not check the backup status on this server."
+      },
+      "plain_recommendation": {
+        "PASS": "Everything looks good. Periodically test restoring files from backup to confirm they work.",
+        "PARTIAL": "Configure a backup schedule using Windows Server Backup. Open Windows Server Backup from the Start menu and set up a regular backup job.",
+        "FAIL": "Enable the Volume Shadow Copy Service (VSS) and set up Windows Server Backup. Open Services (services.msc), start the 'Volume Shadow Copy' service, and configure regular backup jobs.",
+        "UNKNOWN": "Try running the audit again with administrator access."
+      }
     },
     {
       "control_id": "BKP-W10-01",
@@ -485,7 +673,19 @@
       ],
       "pdpa_mapping": [
         "Security principle: ensure personal data can be recovered after accidental deletion."
-      ]
+      ],
+      "plain_reason": {
+        "PASS": "The Windows backup service is running. File backups can be created on this computer.",
+        "PARTIAL": "The backup service is running but no backup copies were found. Backups are not actually being saved.",
+        "FAIL": "The Windows backup service is not running. If files are accidentally deleted or the computer fails, there may be no way to recover them.",
+        "UNKNOWN": "We could not check the backup status on this computer."
+      },
+      "plain_recommendation": {
+        "PASS": "Everything looks good. Consider enabling File History to automatically save copies of your files regularly.",
+        "PARTIAL": "Set up File History. Go to Settings → Update & Security → Backup and turn on 'Automatically back up my files'.",
+        "FAIL": "Enable the Volume Shadow Copy Service. Open Services (services.msc), find 'Volume Shadow Copy', and set it to start automatically. Then set up File History in Settings.",
+        "UNKNOWN": "Try running the audit again."
+      }
     },
     {
       "control_id": "AC-LNX-03",
@@ -513,7 +713,19 @@
       ],
       "pdpa_mapping": [
         "Security principle: limit access to personal data to only accounts that require it."
-      ]
+      ],
+      "plain_reason": {
+        "PASS": "All user accounts that can log in have actually been used before. No abandoned accounts were found.",
+        "PARTIAL": "Some user accounts have never been logged into but still have the ability to log in. Unused accounts are a security risk because attackers can target them without anyone noticing.",
+        "FAIL": "Multiple user accounts that can log in have never been used. These abandoned accounts could be taken over by attackers without anyone noticing.",
+        "UNKNOWN": "We could not check the login history for user accounts on this system."
+      },
+      "plain_recommendation": {
+        "PASS": "Everything looks good. Review accounts periodically to make sure this stays clean.",
+        "PARTIAL": "Review the list of accounts that have never logged in. If they are no longer needed, disable or delete them.",
+        "FAIL": "Disable or remove any user accounts that are no longer needed. Check with your IT team which accounts are still required.",
+        "UNKNOWN": "Try running the audit again. Make sure the system's login tracking is working properly."
+      }
     },
     {
       "control_id": "AC-LNX-04",
@@ -539,7 +751,17 @@
       ],
       "pdpa_mapping": [
         "Security principle: prevent brute-force attacks on accounts holding personal data."
-      ]
+      ],
+      "plain_reason": {
+        "PASS": "The system is set to automatically block an account after too many wrong password attempts, preventing attackers from endlessly guessing passwords.",
+        "FAIL": "There is no limit on how many times someone can try to guess a password on this system. An attacker can try thousands of passwords automatically until they find the right one.",
+        "UNKNOWN": "We could not check whether an account lockout policy is configured on this system."
+      },
+      "plain_recommendation": {
+        "PASS": "Everything looks good. Make sure the lockout settings are set to reasonable values.",
+        "FAIL": "Set up an account lockout policy. After a certain number of wrong password attempts (e.g. 5), the account should get temporarily locked. Ask your IT team to configure pam_faillock on this system.",
+        "UNKNOWN": "Try running the audit again and ensure the system's security configuration files are accessible."
+      }
     },
     {
       "control_id": "AC-WINSVR-02",
@@ -565,7 +787,17 @@
       ],
       "pdpa_mapping": [
         "Security principle: prevent anonymous access to systems holding personal data."
-      ]
+      ],
+      "plain_reason": {
+        "PASS": "The built-in Guest account is disabled. No one can access this server without a proper account.",
+        "FAIL": "The Guest account is turned on. This allows anyone to access the server without needing a password, which is a serious security risk.",
+        "UNKNOWN": "We could not check whether the Guest account is enabled or disabled."
+      },
+      "plain_recommendation": {
+        "PASS": "Everything looks good. No action needed.",
+        "FAIL": "Disable the Guest account immediately. Open Command Prompt as Administrator and run: net user guest /active:no",
+        "UNKNOWN": "Try running the audit again and ensure administrator access is available."
+      }
     },
     {
       "control_id": "AC-W10-02",
@@ -590,7 +822,17 @@
       ],
       "pdpa_mapping": [
         "Security principle: prevent anonymous access to personal data on workstations."
-      ]
+      ],
+      "plain_reason": {
+        "PASS": "The built-in Guest account is disabled. No one can access this computer without a proper account.",
+        "FAIL": "The Guest account is turned on. This allows anyone to access the computer without a password.",
+        "UNKNOWN": "We could not check whether the Guest account is enabled or disabled."
+      },
+      "plain_recommendation": {
+        "PASS": "Everything looks good. No action needed.",
+        "FAIL": "Disable the Guest account. Open Command Prompt as Administrator and run: net user guest /active:no",
+        "UNKNOWN": "Try running the audit again."
+      }
     },
     {
       "control_id": "CRYPTO-WINSVR-01",
@@ -617,7 +859,19 @@
       ],
       "pdpa_mapping": [
         "Security principle: protect personal data in transit using strong cryptographic protocols."
-      ]
+      ],
+      "plain_reason": {
+        "PASS": "Old, insecure versions of the TLS security protocol (TLS 1.0 and 1.1) are disabled. Only modern, secure versions are used for encrypted connections.",
+        "PARTIAL": "Modern TLS is available but older insecure versions have not been explicitly disabled. Attackers could potentially force connections to use the weaker older version.",
+        "FAIL": "Old, insecure versions of the security protocol (TLS 1.0 or 1.1) are still enabled. These have known weaknesses that attackers can exploit to intercept or tamper with data.",
+        "UNKNOWN": "We could not check the TLS security settings on this server."
+      },
+      "plain_recommendation": {
+        "PASS": "Everything looks good. No action needed.",
+        "PARTIAL": "Explicitly disable TLS 1.0 and TLS 1.1 in the Windows registry. Ask your IT team to update the SCHANNEL settings.",
+        "FAIL": "Disable TLS 1.0 and TLS 1.1 in the Windows registry. Only TLS 1.2 and 1.3 should be allowed. Ask your IT team to update the server's SCHANNEL configuration.",
+        "UNKNOWN": "Try running the audit again with administrator access."
+      }
     },
     {
       "control_id": "CRYPTO-W10-01",
@@ -644,7 +898,19 @@
       ],
       "pdpa_mapping": [
         "Security principle: protect personal data stored on endpoints from physical theft."
-      ]
+      ],
+      "plain_reason": {
+        "PASS": "BitLocker drive encryption is turned on. If this computer is lost or stolen, the data on it cannot be read without the encryption key.",
+        "PARTIAL": "BitLocker is set up but protection is currently paused. The drive is not fully protected right now.",
+        "FAIL": "BitLocker drive encryption is not turned on. If this computer is ever lost or stolen, anyone who finds it can read all the data on it, including personal and confidential information.",
+        "UNKNOWN": "We could not check whether BitLocker encryption is turned on."
+      },
+      "plain_recommendation": {
+        "PASS": "Everything looks good. Make sure the BitLocker recovery key is stored somewhere safe, separate from the computer.",
+        "PARTIAL": "Resume BitLocker protection. Open File Explorer, right-click the C: drive, and select 'Resume Protection'.",
+        "FAIL": "Turn on BitLocker encryption. Go to Settings → Update & Security → Device Encryption and turn it on. Or search for 'BitLocker' in the Start menu and follow the setup steps.",
+        "UNKNOWN": "Try running the audit again with administrator access."
+      }
     },
     {
       "control_id": "LOG-LNX-03",
@@ -671,7 +937,19 @@
       ],
       "pdpa_mapping": [
         "Security principle: maintain audit logs for the appropriate retention period without uncontrolled disk growth."
-      ]
+      ],
+      "plain_reason": {
+        "PASS": "Log rotation is set up and running automatically. Old log files are archived regularly, preventing the system from running out of storage space.",
+        "PARTIAL": "The log rotation tool is installed but it is not scheduled to run automatically. Log files could grow very large over time and fill up the disk.",
+        "FAIL": "Log rotation is not set up. Over time, log files will keep growing and could fill up the disk, causing the system to stop working properly.",
+        "UNKNOWN": "We could not check whether log rotation is configured on this system."
+      },
+      "plain_recommendation": {
+        "PASS": "Everything looks good. No action needed.",
+        "PARTIAL": "Set up a schedule for log rotation by enabling the logrotate timer: sudo systemctl enable logrotate.timer",
+        "FAIL": "Install the logrotate tool (sudo apt install logrotate) and configure it to automatically manage log file sizes.",
+        "UNKNOWN": "Try running the audit again."
+      }
     }
   ]
 }

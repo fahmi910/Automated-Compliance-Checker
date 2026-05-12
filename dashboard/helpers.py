@@ -201,6 +201,50 @@ def error_banner(msg: str):
     })
 
 
+
+
+# ── Plain English text helpers ────────────────────────────────────────────────
+
+import json as _json
+import os as _os
+
+def _load_plain_text_lookup() -> dict:
+    """Load plain_reason and plain_recommendation from controls.json."""
+    here    = _os.path.dirname(_os.path.abspath(__file__))
+    paths = [
+        _os.path.normpath(_os.path.join(here, "..", "rules", "controls.json")),
+        _os.path.normpath(_os.path.join(here, "..", "..", "rules", "controls.json")),
+        _os.path.normpath(_os.path.join(here, "..", "server", "rules", "controls.json")),
+    ]
+    for path in paths:
+        if _os.path.exists(path):
+            with open(path, encoding="utf-8") as f:
+                data = _json.load(f)
+            lookup = {}
+            for c in data.get("controls", []):
+                cid = c.get("control_id")
+                if cid:
+                    lookup[cid] = {
+                        "plain_reason":         c.get("plain_reason", {}),
+                        "plain_recommendation": c.get("plain_recommendation", {}),
+                    }
+            return lookup
+    return {}
+
+_PLAIN_LOOKUP = _load_plain_text_lookup()
+
+
+def get_plain_reason(control_id: str, status: str) -> str | None:
+    """Return plain English reason for a control/status, or None if not available."""
+    entry = _PLAIN_LOOKUP.get(control_id, {})
+    return entry.get("plain_reason", {}).get(status)
+
+
+def get_plain_recommendation(control_id: str, status: str) -> str | None:
+    """Return plain English recommendation for a control/status, or None if not available."""
+    entry = _PLAIN_LOOKUP.get(control_id, {})
+    return entry.get("plain_recommendation", {}).get(status)
+
 # ── Charts ─────────────────────────────────────────────────────────────────────
 
 def make_gauge(score, risk_k: str) -> go.Figure:

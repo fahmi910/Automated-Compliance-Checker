@@ -14,7 +14,7 @@ server = app.server
 app.layout = html.Div([
     dcc.Location(id="url"),
     dcc.Store(id="api-base-store", data="http://127.0.0.1:8000"),
-    dcc.Interval(id="global-refresh", interval=30_000, n_intervals=0),
+    dcc.Interval(id="global-refresh", interval=300_000, n_intervals=0),
 
     # ── Sidebar ───────────────────────────────────────────────────────────────
     html.Div([
@@ -43,11 +43,15 @@ app.layout = html.Div([
 
         html.Div("NAVIGATION", className="sidebar-section-title"),
         html.Nav([
-            html.Div(dcc.Link(html.Div([html.Span(className="nav-dot"), "Overview"],    className="nav-item"), href="/",        className="nav-link"), id="nav-overview"),
-            html.Div(dcc.Link(html.Div([html.Span(className="nav-dot"), "Host Details"],className="nav-item"), href="/host",     className="nav-link"), id="nav-host"),
-            html.Div(dcc.Link(html.Div([html.Span(className="nav-dot"), "History"],     className="nav-item"), href="/history",  className="nav-link"), id="nav-history"),
-            html.Div(dcc.Link(html.Div([html.Span(className="nav-dot"), "Compare"],     className="nav-item"), href="/compare",  className="nav-link"), id="nav-compare"),
-            html.Div(dcc.Link(html.Div([html.Span(className="nav-dot"), "About"],       className="nav-item"), href="/about",    className="nav-link"), id="nav-about"),
+            html.Div(dcc.Link(html.Div([html.Span(className="nav-dot"), "Overview"],            className="nav-item"), href="/",            className="nav-link"), id="nav-overview"),
+            html.Div(dcc.Link(html.Div([html.Span(className="nav-dot"), "Host Details"],        className="nav-item"), href="/host",         className="nav-link"), id="nav-host"),
+            html.Div(dcc.Link(html.Div([html.Span(className="nav-dot"), "History"],             className="nav-item"), href="/history",      className="nav-link"), id="nav-history"),
+            html.Div(dcc.Link(html.Div([html.Span(className="nav-dot"), "Compare"],             className="nav-item"), href="/compare",      className="nav-link"), id="nav-compare"),
+            html.Div(dcc.Link(html.Div([html.Span(className="nav-dot"), "Report Export"],       className="nav-item"), href="/report",       className="nav-link"), id="nav-report"),
+            html.Div(dcc.Link(html.Div([html.Span(className="nav-dot"), "Control Catalogue"],   className="nav-item"), href="/catalogue",    className="nav-link"), id="nav-catalogue"),
+            html.Div(dcc.Link(html.Div([html.Span(className="nav-dot"), "Remediation Tracker"], className="nav-item"), href="/remediation",  className="nav-link"), id="nav-remediation"),
+            html.Div(dcc.Link(html.Div([html.Span(className="nav-dot"), "About"],               className="nav-item"), href="/about",        className="nav-link"), id="nav-about"),
+            html.Div(dcc.Link(html.Div([html.Span(className="nav-dot"), "Unit Testing"],        className="nav-item"), href="/unit-testing", className="nav-link"), id="nav-unit-testing"),
         ], className="nav-list"),
 
         html.Div("FYP 2025/26", className="sidebar-footer"),
@@ -87,11 +91,15 @@ if __name__ == "__main__":
 
 # ── Active nav highlight ───────────────────────────────────────────────────────
 _NAV_PAGES = [
-    ("nav-overview", "/",        "Overview"),
-    ("nav-host",     "/host",    "Host Details"),
-    ("nav-history",  "/history", "History"),
-    ("nav-compare",  "/compare", "Compare"),
-    ("nav-about",    "/about",   "About"),
+    ("nav-overview",    "/",            "Overview"),
+    ("nav-host",        "/host",        "Host Details"),
+    ("nav-history",     "/history",     "History"),
+    ("nav-compare",     "/compare",     "Compare"),
+    ("nav-report",      "/report",      "Report Export"),
+    ("nav-catalogue",   "/catalogue",   "Control Catalogue"),
+    ("nav-remediation", "/remediation", "Remediation Tracker"),
+    ("nav-about",       "/about",       "About"),
+    ("nav-unit-testing", "/unit-testing", "Unit Testing"),
 ]
 
 @callback(

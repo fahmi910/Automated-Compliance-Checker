@@ -1503,25 +1503,81 @@ def evaluate_upd_windows_01(
 
         hotfix_present = isinstance(hotfix_value, dict)
 
-        if status == "running" and hotfix_present:
-            result["status"] = "PASS"
-            result["reason"] = "Windows Update service is running and update history is present."
-        elif status == "running" and not hotfix_present:
-            result["status"] = "PARTIAL"
-            result["reason"] = "Windows Update service is running but recent hotfix evidence is unavailable."
-        elif status in ("stopped", "stop pending", "paused"):
+        # --- Patch age check ---
+        patch_age_days = None
+        patch_stale = False
+        STALE_THRESHOLD_DAYS = 90
+
+        if hotfix_present:
+            installed_on = hotfix_value.get("InstalledOn", {})
+            # InstalledOn is a WMI date object: {"value": "/Date(ms)/", "DateTime": "..."}
+            ms_str = None
+            if isinstance(installed_on, dict):
+                ms_str = installed_on.get("value", "")
+            elif isinstance(installed_on, str):
+                ms_str = installed_on
+            if ms_str and "/Date(" in str(ms_str):
+                try:
+                    import re as _re
+                    match = _re.search(r"/Date\((\d+)\)/", str(ms_str))
+                    if match:
+                        from datetime import datetime, timezone
+                        epoch_ms = int(match.group(1))
+                        installed_dt = datetime.fromtimestamp(epoch_ms / 1000, tz=timezone.utc)
+                        now_dt = datetime.now(tz=timezone.utc)
+                        patch_age_days = (now_dt - installed_dt).days
+                        patch_stale = patch_age_days > STALE_THRESHOLD_DAYS
+                except Exception:
+                    pass
+
+        # --- Verdict ---
+        not_auto = start_type not in ("automatic",)
+
+        if status != "running":
             result["status"] = "FAIL"
             result["reason"] = f"Windows Update service is not running (status={service_value.get('Status')})."
+        elif not hotfix_present:
+            result["status"] = "PARTIAL"
+            result["reason"] = "Windows Update service is running but no patch history found."
+        elif patch_stale:
+            result["status"] = "PARTIAL"
+            result["reason"] = (
+                f"Windows Update service is running but latest patch is {patch_age_days} days old "
+                f"(KB: {hotfix_value.get('HotFixID', 'unknown')}). "
+                f"Patches older than {STALE_THRESHOLD_DAYS} days indicate update automation may be broken."
+            )
+            if not_auto:
+                result["reason"] += f" StartType is '{service_value.get('StartType')}' — set to Automatic."
+        elif not_auto:
+            result["status"] = "PARTIAL"
+            result["reason"] = (
+                f"Windows Update service is running but StartType='{service_value.get('StartType')}'. "
+                f"Set to Automatic to ensure updates run without manual intervention. "
+                f"Latest patch: {hotfix_value.get('HotFixID', 'unknown')} "
+                f"({patch_age_days} days ago)."
+            )
         else:
-            result["status"] = "UNKNOWN"
-            result["reason"] = f"Unexpected Windows Update service status: {service_value.get('Status')!r}."
+            result["status"] = "PASS"
+            result["reason"] = (
+                f"Windows Update service is running (Automatic). "
+                f"Latest patch: {hotfix_value.get('HotFixID', 'unknown')} "
+                f"({patch_age_days} days ago)."
+            )
 
         result["supporting_validation"]["startup_type"] = build_validation_block(
             collected=True,
             value=service_value.get("StartType"),
-            status="HIT" if start_type in ("automatic", "manual") else "MISS",
+            status="HIT" if not not_auto else "MISS",
             source=service_obj.get("source"),
             note="Used as supporting context for update service configuration.",
+        )
+
+        result["supporting_validation"]["patch_age"] = build_validation_block(
+            collected=patch_age_days is not None,
+            value=f"{patch_age_days} days" if patch_age_days is not None else "unknown",
+            status="MISS" if patch_stale else "HIT",
+            source="InstalledOn field from Get-HotFix",
+            note=f"Patches older than {STALE_THRESHOLD_DAYS} days are flagged as stale.",
         )
 
     # Exposure
@@ -1541,6 +1597,13 @@ def evaluate_upd_windows_01(
         rule_hits.append("patch_evidence_missing")
     else:
         rule_misses.append("patch_evidence_missing")
+
+    # Stale patch raises exposure — attacker window grows with age
+    if patch_stale:
+        final_el = min(5, final_el + 1)
+        rule_hits.append("patch_stale")
+    elif patch_age_days is not None:
+        rule_misses.append("patch_stale")
 
     final_el = max(1, min(5, final_el))
 
@@ -2787,4 +2850,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main() 
+    main()
