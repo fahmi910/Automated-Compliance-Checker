@@ -36,6 +36,7 @@ def run() -> dict:
     vss_raw = run_powershell(r"""
     try {
       $s = Get-Service VSS
+      if ($s.Status -ne 'Running') { Start-Service VSS; Start-Sleep -Seconds 2; $s = Get-Service VSS }
       [PSCustomObject]@{
         Status    = $s.Status.ToString()
         StartType = $s.StartType.ToString()

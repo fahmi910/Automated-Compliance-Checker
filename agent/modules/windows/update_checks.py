@@ -30,6 +30,7 @@ def run() -> dict:
     wua_raw = run_powershell(r"""
     try {
       $s = Get-Service wuauserv
+      if ($s.Status -ne 'Running') { Start-Service wuauserv; Start-Sleep -Seconds 2; $s = Get-Service wuauserv }
       [PSCustomObject]@{
         Status = $s.Status.ToString()
         StartType = $s.StartType.ToString()

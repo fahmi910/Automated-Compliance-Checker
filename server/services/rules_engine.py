@@ -1516,7 +1516,7 @@ def evaluate_upd_windows_01(
                 ms_str = installed_on.get("value", "")
             elif isinstance(installed_on, str):
                 ms_str = installed_on
-            if ms_str and "/Date(" in str(ms_str):
+            if ms_str and "Date(" in str(ms_str):
                 try:
                     import re as _re
                     match = _re.search(r"/Date\((\d+)\)/", str(ms_str))
@@ -1685,7 +1685,7 @@ def evaluate_fw_windows_01(
 
             all_inbound_block = all(
                 normalize_str(p.get("DefaultInboundAction")) == "block"
-                or p.get("DefaultInboundAction") == 0
+                or p.get("DefaultInboundAction") in (0, 2, 4)
                 for p in valid_profiles
             )
 
